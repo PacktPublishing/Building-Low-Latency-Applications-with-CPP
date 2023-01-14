@@ -12,19 +12,19 @@ namespace Common {
         store_(num_elems, T()) /* pre-allocation of vector storage. */ {
     }
 
-    auto push(const T &t) noexcept {
-      store_[next_write_index_] = t;
+    auto getNextToWriteTo() noexcept {
+      return &store_[next_write_index_];
+    }
+
+    auto updateWriteIndex() noexcept {
       next_write_index_ = (next_write_index_ + 1) % store_.size();
     }
 
-    auto getNext() const noexcept -> const T * {
-      if (next_read_index_ == next_write_index_)
-        return nullptr;
-
-      return &store_[next_read_index_];
+    auto getNextToRead() const noexcept -> const T * {
+      return (next_read_index_ == next_write_index_) ? nullptr : &store_[next_read_index_];
     }
 
-    auto pop() noexcept {
+    auto updateReadIndex() noexcept {
       next_read_index_ = (next_read_index_ + 1) % store_.size();
     }
 
@@ -32,16 +32,16 @@ namespace Common {
       return (next_read_index_ == next_write_index_);
     }
 
-    auto size() const noexcept {
-      return (next_write_index_ >= next_read_index_) ? (next_write_index_ - next_read_index_) : (store_.size() - next_read_index_ - next_write_index_);
-    }
-
     // Deleted default, copy & move constructors and assignment-operators.
     LFQueue() = delete;
-    LFQueue(const LFQueue&) = delete;
-    LFQueue(const LFQueue&&) = delete;
-    LFQueue& operator=(const LFQueue&) = delete;
-    LFQueue& operator=(const LFQueue&&) = delete;
+
+    LFQueue(const LFQueue &) = delete;
+
+    LFQueue(const LFQueue &&) = delete;
+
+    LFQueue &operator=(const LFQueue &) = delete;
+
+    LFQueue &operator=(const LFQueue &&) = delete;
 
   private:
     std::vector<T> store_;
