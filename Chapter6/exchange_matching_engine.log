@@ -1,0 +1,49 @@
+/home/sghosh/Building-Low-Latency-Applications-with-CPP/Chapter6/exchange/matcher/matching_engine.h:65 run() Thu Mar  2 13:02:38 2023
+/home/sghosh/Building-Low-Latency-Applications-with-CPP/Chapter6/exchange/matcher/me_order_book.cpp:14 ~MEOrderBook() Thu Mar  2 13:03:02 2023 OrderBook
+Ticker:0
+
+                          X
+
+
+/home/sghosh/Building-Low-Latency-Applications-with-CPP/Chapter6/exchange/matcher/me_order_book.cpp:14 ~MEOrderBook() Thu Mar  2 13:03:03 2023 OrderBook
+Ticker:1
+
+                          X
+
+
+/home/sghosh/Building-Low-Latency-Applications-with-CPP/Chapter6/exchange/matcher/me_order_book.cpp:14 ~MEOrderBook() Thu Mar  2 13:03:04 2023 OrderBook
+Ticker:2
+
+                          X
+
+
+/home/sghosh/Building-Low-Latency-Applications-with-CPP/Chapter6/exchange/matcher/me_order_book.cpp:14 ~MEOrderBook() Thu Mar  2 13:03:06 2023 OrderBook
+Ticker:3
+
+                          X
+
+
+/home/sghosh/Building-Low-Latency-Applications-with-CPP/Chapter6/exchange/matcher/me_order_book.cpp:14 ~MEOrderBook() Thu Mar  2 13:03:07 2023 OrderBook
+Ticker:4
+
+                          X
+
+
+/home/sghosh/Building-Low-Latency-Applications-with-CPP/Chapter6/exchange/matcher/me_order_book.cpp:14 ~MEOrderBook() Thu Mar  2 13:03:08 2023 OrderBook
+Ticker:5
+
+                          X
+
+
+/home/sghosh/Building-Low-Latency-Applications-with-CPP/Chapter6/exchange/matcher/me_order_book.cpp:14 ~MEOrderBook() Thu Mar  2 13:03:09 2023 OrderBook
+Ticker:6
+
+                          X
+
+
+/home/sghosh/Building-Low-Latency-Applications-with-CPP/Chapter6/exchange/matcher/me_order_book.cpp:14 ~MEOrderBook() Thu Mar  2 13:03:10 2023 OrderBook
+Ticker:7
+
+                          X
+
+
