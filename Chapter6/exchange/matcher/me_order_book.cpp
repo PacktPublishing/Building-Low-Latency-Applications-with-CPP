@@ -1,17 +1,15 @@
-#include <algorithm>
-
 #include "me_order_book.h"
 
 #include "matcher/matching_engine.h"
 
 namespace Exchange {
-  MEOrderBook::MEOrderBook(TickerId ticker_id, Logger &logger, MatchingEngine *matching_engine)
+  MEOrderBook::MEOrderBook(TickerId ticker_id, Logger *logger, MatchingEngine *matching_engine)
       : ticker_id_(ticker_id), matching_engine_(matching_engine), orders_at_price_pool_(ME_MAX_PRICE_LEVELS), order_pool_(ME_MAX_ORDER_IDS),
         logger_(logger) {
   }
 
   MEOrderBook::~MEOrderBook() {
-    logger_.log("%:% %() % OrderBook\n%\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_),
+    logger_->log("%:% %() % OrderBook\n%\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_),
                 toString(false, true));
 
     matching_engine_ = nullptr;
@@ -21,85 +19,59 @@ namespace Exchange {
     }
   }
 
-  auto MEOrderBook::checkForMatch(ClientId client_id, OrderId client_order_id, TickerId ticker_id, Side side, Price price, Qty qty,
-                                  Qty new_market_order_id) noexcept {
+  auto MEOrderBook::match(TickerId ticker_id, ClientId client_id, Side side, OrderId client_order_id, OrderId new_market_order_id, MEOrder* itr, Qty* leaves_qty) noexcept {
+    const auto order = itr;
+    const auto order_qty = order->qty_;
+    const auto fill_qty = std::min(*leaves_qty, order_qty);
+
+    *leaves_qty -= fill_qty;
+    order->qty_ -= fill_qty;
+
+    client_response_ = {ClientResponseType::FILLED, client_id, ticker_id, client_order_id,
+                        new_market_order_id, side, itr->price_, fill_qty, *leaves_qty};
+    matching_engine_->sendClientResponse(&client_response_);
+
+    client_response_ = {ClientResponseType::FILLED, order->client_id_, ticker_id, order->client_order_id_,
+                        order->market_order_id_, order->side_, itr->price_, fill_qty, order->qty_};
+    matching_engine_->sendClientResponse(&client_response_);
+
+    market_update_ = {MarketUpdateType::TRADE, OrderId_INVALID, ticker_id, side, itr->price_, fill_qty, Priority_INVALID};
+    matching_engine_->sendMarketUpdate(&market_update_);
+
+    if (!order->qty_) {
+      market_update_ = {MarketUpdateType::CANCEL, order->market_order_id_, ticker_id, order->side_,
+                        order->price_, order_qty, Priority_INVALID};
+      matching_engine_->sendMarketUpdate(&market_update_);
+
+      removeOrder(order);
+    } else {
+      market_update_ = {MarketUpdateType::MODIFY, order->market_order_id_, ticker_id, order->side_,
+                        order->price_, order->qty_, order->priority_};
+      matching_engine_->sendMarketUpdate(&market_update_);
+    }
+  }
+
+  auto MEOrderBook::checkForMatch(ClientId client_id, OrderId client_order_id, TickerId ticker_id, Side side, Price price, Qty qty, Qty new_market_order_id) noexcept {
     auto leaves_qty = qty;
 
     if (side == Side::BUY) {
       while (leaves_qty && asks_by_price_) {
-        auto ask_itr = asks_by_price_->first_me_order_;
+        const auto ask_itr = asks_by_price_->first_me_order_;
         if (LIKELY(price < ask_itr->price_)) {
           break;
         }
 
-        auto order = ask_itr;
-        const auto order_qty = order->qty_;
-        const auto fill_qty = std::min(leaves_qty, order_qty);
-        leaves_qty -= fill_qty;
-        order->qty_ -= fill_qty;
-        ASSERT(fill_qty > 0, "Zero fill_qty of oid:" + orderIdToString(client_order_id) + " against:" + order->toString());
-
-        client_response_ = {ClientResponseType::FILLED, client_id, ticker_id, client_order_id,
-                            new_market_order_id, side, ask_itr->price_, fill_qty, leaves_qty};
-        matching_engine_->sendClientResponse(&client_response_);
-
-        client_response_ = {ClientResponseType::FILLED, order->client_id_, ticker_id, order->client_order_id_,
-                            order->market_order_id_, order->side_, ask_itr->price_, fill_qty, order->qty_};
-        matching_engine_->sendClientResponse(&client_response_);
-
-        market_update_ = {MarketUpdateType::TRADE, OrderId_INVALID, ticker_id, side, ask_itr->price_, fill_qty, Priority_INVALID};
-        matching_engine_->sendMarketUpdate(&market_update_);
-
-        if (fill_qty == order_qty) {
-          market_update_ = {MarketUpdateType::CANCEL, order->market_order_id_, ticker_id, order->side_,
-                            order->price_, order_qty, Priority_INVALID};
-          matching_engine_->sendMarketUpdate(&market_update_);
-
-          removeOrder(order);
-        } else {
-          market_update_ = {MarketUpdateType::MODIFY, order->market_order_id_, ticker_id, order->side_,
-                            order->price_, order->qty_, order->priority_};
-          matching_engine_->sendMarketUpdate(&market_update_);
-        }
+        match(ticker_id, client_id, side, client_order_id, new_market_order_id, ask_itr, &leaves_qty);
       }
     }
     if (side == Side::SELL) {
       while (leaves_qty && bids_by_price_) {
-        auto bid_itr = bids_by_price_;
+        const auto bid_itr = bids_by_price_->first_me_order_;
         if (LIKELY(price > bid_itr->price_)) {
           break;
         }
 
-        auto order = bid_itr->first_me_order_;
-        const auto order_qty = order->qty_;
-        const auto fill_qty = std::min(leaves_qty, order_qty);
-        ASSERT(fill_qty > 0, "Zero fill_qty of oid:" + orderIdToString(client_order_id) + " against:" + order->toString());
-
-        leaves_qty -= fill_qty;
-        order->qty_ -= fill_qty;
-
-        client_response_ = {ClientResponseType::FILLED, client_id, ticker_id, client_order_id,
-                            new_market_order_id, side, bid_itr->price_, fill_qty, leaves_qty};
-        matching_engine_->sendClientResponse(&client_response_);
-
-        client_response_ = {ClientResponseType::FILLED, order->client_id_, ticker_id, order->client_order_id_,
-                            order->market_order_id_, order->side_, bid_itr->price_, fill_qty, order->qty_};
-        matching_engine_->sendClientResponse(&client_response_);
-
-        market_update_ = {MarketUpdateType::TRADE, OrderId_INVALID, ticker_id, side, bid_itr->price_, fill_qty, Priority_INVALID};
-        matching_engine_->sendMarketUpdate(&market_update_);
-
-        if (fill_qty == order_qty) {
-          market_update_ = {MarketUpdateType::CANCEL, order->market_order_id_, ticker_id, order->side_,
-                            order->price_, order_qty, Priority_INVALID};
-          matching_engine_->sendMarketUpdate(&market_update_);
-
-          removeOrder(order);
-        } else {
-          market_update_ = {MarketUpdateType::MODIFY, order->market_order_id_, ticker_id, order->side_,
-                            order->price_, order->qty_, order->priority_};
-          matching_engine_->sendMarketUpdate(&market_update_);
-        }
+        match(ticker_id, client_id, side, client_order_id, new_market_order_id, bid_itr, &leaves_qty);
       }
     }
 
@@ -111,12 +83,10 @@ namespace Exchange {
     client_response_ = {ClientResponseType::ACCEPTED, client_id, ticker_id, client_order_id, new_market_order_id, side, price, 0, qty};
     matching_engine_->sendClientResponse(&client_response_);
 
-    ASSERT(side == Side::BUY || side == Side::SELL, "Side needs to be BUY/SELL, received:" + sideToString(side));
-
     const auto leaves_qty = checkForMatch(client_id, client_order_id, ticker_id, side, price, qty, new_market_order_id);
 
     if (LIKELY(leaves_qty)) {
-      const auto priority = getNextPriority(ticker_id, side, price);
+      const auto priority = getNextPriority(ticker_id, price);
 
       auto order = order_pool_.allocate(ticker_id, client_id, client_order_id, new_market_order_id, side, price, leaves_qty, priority, nullptr,
                                         nullptr);
@@ -132,17 +102,8 @@ namespace Exchange {
     MEOrder *exchange_order = nullptr;
     if (LIKELY(is_cancelable)) {
       auto &co_itr = cid_oid_to_order_.at(client_id);
-      ASSERT(order_id < co_itr.size(), "Received oid:" + std::to_string(order_id) + " larger than MAX_ORDER_ID:" + std::to_string(ME_MAX_ORDER_IDS));
       exchange_order = co_itr.at(order_id);
       is_cancelable = (exchange_order != nullptr);
-      if (is_cancelable) {
-        ASSERT(exchange_order->client_id_ == client_id,
-               "ClientId does not match. Expected:" + clientIdToString(client_id) + ". Got:" + clientIdToString(exchange_order->client_id_));
-        ASSERT(exchange_order->ticker_id_ == ticker_id,
-               "TickerId does not match. Expected:" + tickerIdToString(ticker_id) + ". Got:" + tickerIdToString(exchange_order->ticker_id_));
-        ASSERT(exchange_order->client_order_id_ == order_id,
-               "OrderId does not match. Expected:" + tickerIdToString(order_id) + ". Got:" + tickerIdToString(exchange_order->client_order_id_));
-      }
     }
 
     if (UNLIKELY(!is_cancelable)) {
@@ -153,9 +114,6 @@ namespace Exchange {
                           exchange_order->side_, exchange_order->price_, Qty_INVALID, exchange_order->qty_};
       market_update_ = {MarketUpdateType::CANCEL, exchange_order->market_order_id_, ticker_id, exchange_order->side_, exchange_order->price_, 0,
                         exchange_order->priority_};
-
-      ASSERT(exchange_order->client_id_ == client_id, "Trying to cancel different client's order.");
-      ASSERT(exchange_order->client_order_id_ == order_id, "Trying to cancel different client oid.");
 
       removeOrder(exchange_order);
 
@@ -174,7 +132,6 @@ namespace Exchange {
       Qty qty = 0;
       size_t num_orders = 0;
 
-      ASSERT(itr->first_me_order_, "FirstMEOrder should not be null:" + itr->toString());
       for (auto o_itr = itr->first_me_order_;; o_itr = o_itr->next_order_) {
         qty += o_itr->qty_;
         ++num_orders;

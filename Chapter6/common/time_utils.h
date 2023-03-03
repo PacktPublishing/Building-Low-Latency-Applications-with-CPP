@@ -12,7 +12,7 @@ namespace Common {
   constexpr Nanos NANOS_TO_MILLIS = NANO_TO_MICROS * MICROS_TO_MILLIS;
   constexpr Nanos NANOS_TO_SECS = NANOS_TO_MILLIS * MILLIS_TO_SECS;
 
-  inline auto getCurrentNanos() {
+  inline auto getCurrentNanos() noexcept {
     return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
   }
 

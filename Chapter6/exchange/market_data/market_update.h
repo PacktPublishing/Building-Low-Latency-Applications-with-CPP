@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdint>
 #include <sstream>
 
 #include "common/types.h"
@@ -43,7 +42,7 @@ namespace Exchange {
     Qty qty_ = Qty_INVALID;
     Priority priority_ = Priority_INVALID;
 
-    std::string toString() const {
+    auto toString() const {
       std::stringstream ss;
       ss << "MEMarketUpdate"
          << " ["
@@ -63,7 +62,7 @@ namespace Exchange {
     size_t seq_num_ = 0;
     MEMarketUpdate me_market_update_;
 
-    std::string toString() const {
+    auto toString() const {
       std::stringstream ss;
       ss << "MDPMarketUpdate"
          << " ["

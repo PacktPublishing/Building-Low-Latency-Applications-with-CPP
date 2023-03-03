@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdint>
 #include <sstream>
 
 #include "common/types.h"
@@ -45,7 +44,7 @@ namespace Exchange {
     Qty exec_qty_ = Qty_INVALID;
     Qty leaves_qty_ = Qty_INVALID;
 
-    std::string toString() const {
+    auto toString() const {
       std::stringstream ss;
       ss << "MEClientResponse"
          << " ["
@@ -67,11 +66,11 @@ namespace Exchange {
     size_t seq_num_ = 0;
     MEClientResponse me_client_response_;
 
-    std::string toString() const {
+    auto toString() const {
       std::stringstream ss;
       ss << "OMClientResponse"
          << " ["
-         << " seq:" << seq_num_
+         << "seq:" << seq_num_
          << " " << me_client_response_.toString()
          << "]";
       return ss.str();
