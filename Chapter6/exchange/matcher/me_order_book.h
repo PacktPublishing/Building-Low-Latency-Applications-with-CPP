@@ -140,7 +140,7 @@ namespace Exchange {
       orders_at_price_pool_.deallocate(orders_at_price);
     }
 
-    auto getNextPriority(TickerId, Price price) noexcept {
+    auto getNextPriority(Price price) noexcept {
       const auto orders_at_price = getOrdersAtPrice(price);
       if (!orders_at_price)
         return 1lu;

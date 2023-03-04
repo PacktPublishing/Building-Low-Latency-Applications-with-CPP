@@ -86,7 +86,7 @@ namespace Exchange {
     const auto leaves_qty = checkForMatch(client_id, client_order_id, ticker_id, side, price, qty, new_market_order_id);
 
     if (LIKELY(leaves_qty)) {
-      const auto priority = getNextPriority(ticker_id, price);
+      const auto priority = getNextPriority(price);
 
       auto order = order_pool_.allocate(ticker_id, client_id, client_order_id, new_market_order_id, side, price, leaves_qty, priority, nullptr,
                                         nullptr);
