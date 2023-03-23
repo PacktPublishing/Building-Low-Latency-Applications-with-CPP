@@ -1,7 +1,7 @@
 #include "common/socket_utils.h"
 
 namespace Common {
-  auto getIfaceIP(const std::string &iface) noexcept -> std::string {
+  auto getIfaceIP(const std::string &iface) -> std::string {
     char buf[NI_MAXHOST] = {'\0'};
     ifaddrs *ifaddr = nullptr;
 
@@ -18,7 +18,7 @@ namespace Common {
     return buf;
   }
 
-  auto setNonBlocking(int fd) noexcept -> bool {
+  auto setNonBlocking(int fd) -> bool {
     const auto flags = fcntl(fd, F_GETFL, 0);
     if (flags == -1)
       return false;
@@ -27,24 +27,29 @@ namespace Common {
     return (fcntl(fd, F_SETFL, flags | O_NONBLOCK) != -1);
   }
 
-  auto setNoDelay(int fd) noexcept -> bool {
+  auto setNoDelay(int fd) -> bool {
     int one = 1;
     return (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<void *>(&one), sizeof(one)) != -1);
   }
 
-  auto wouldBlock() noexcept -> bool {
+  auto setSOTimestamp(int fd) -> bool {
+    int one = 1;
+    return (setsockopt(fd, SOL_SOCKET, SO_TIMESTAMP, reinterpret_cast<void *>(&one), sizeof(one)) != -1);
+  }
+
+  auto wouldBlock() -> bool {
     return (errno == EWOULDBLOCK || errno == EINPROGRESS);
   }
 
-  auto setMcastTTL(int fd, int mcast_ttl) noexcept -> bool {
+  auto setMcastTTL(int fd, int mcast_ttl) -> bool {
     return (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_TTL, reinterpret_cast<void *>(&mcast_ttl), sizeof(mcast_ttl)) != -1);
   }
 
-  auto setTTL(int fd, int ttl) noexcept -> bool {
+  auto setTTL(int fd, int ttl) -> bool {
     return (setsockopt(fd, IPPROTO_IP, IP_TTL, reinterpret_cast<void *>(&ttl), sizeof(ttl)) != -1);
   }
 
-  auto join(int fd, const std::string &ip, const std::string &iface, int) noexcept -> bool {
+  auto join(int fd, const std::string &ip, const std::string &iface, int) -> bool {
     ip_mreq mreq;
     mreq.imr_interface.s_addr = inet_addr(iface.c_str());
     mreq.imr_multiaddr.s_addr = inet_addr(ip.c_str());
@@ -56,10 +61,12 @@ namespace Common {
   }
 
   auto createSocket(Logger &logger, const std::string &t_ip, const std::string &iface, int port,
-                    bool is_udp, bool is_blocking, bool is_listening, int ttl) noexcept -> int {
+                    bool is_udp, bool is_blocking, bool is_listening, int ttl, bool needs_so_timestamp) -> int {
+    std::string time_str;
+
     const auto ip = t_ip.empty() ? getIfaceIP(iface) : t_ip;
-    logger.log("%:% % createSocket() ip:% iface:% port:% is_udp:% is_blocking:% is_listening:% ttl:%\n",
-               __FILE__, __LINE__, __FUNCTION__, ip, iface, port, is_udp, is_blocking, is_listening, ttl);
+    logger.log("%:% %() % ip:% iface:% port:% is_udp:% is_blocking:% is_listening:% ttl:% SO_time:%\n", __FILE__, __LINE__, __FUNCTION__,
+               Common::getCurrentTimeStr(&time_str), ip, iface, port, is_udp, is_blocking, is_listening, ttl, needs_so_timestamp);
 
     addrinfo hints{};
     hints.ai_family = AF_INET;
@@ -121,6 +128,10 @@ namespace Common {
           logger.log("setTTL() failed. errno:%\n", strerror(errno));
           return -1;
         }
+      }
+      if (needs_so_timestamp && !setSOTimestamp(fd)) {
+        logger.log("setSOTimestamp() failed. errno:%\n", strerror(errno));
+        return -1;
       }
     }
 

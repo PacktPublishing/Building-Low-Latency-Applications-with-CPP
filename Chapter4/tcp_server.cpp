@@ -1,24 +1,24 @@
 #include "common/tcp_server.h"
 
 namespace Common {
-  auto TCPServer::destroy() noexcept {
+  auto TCPServer::destroy() {
     close(efd_);
     efd_ = -1;
     listener_socket_.destroy();
   }
 
-  auto TCPServer::epoll_add(TCPSocket *socket) noexcept {
+  auto TCPServer::epoll_add(TCPSocket *socket) {
     epoll_event ev{};
     ev.events = EPOLLET | EPOLLIN;
     ev.data.ptr = reinterpret_cast<void *>(socket);
     return (epoll_ctl(efd_, EPOLL_CTL_ADD, socket->fd_, &ev) != -1);
   }
 
-  auto TCPServer::epoll_del(TCPSocket *socket) noexcept {
+  auto TCPServer::epoll_del(TCPSocket *socket) {
     return (epoll_ctl(efd_, EPOLL_CTL_DEL, socket->fd_, nullptr) != -1);
   }
 
-  auto TCPServer::listen(const std::string &iface, int port) noexcept -> void {
+  auto TCPServer::listen(const std::string &iface, int port) -> void {
     destroy();
     efd_ = epoll_create(1);
     ASSERT(efd_ >= 0, "epoll_create() failed error:" + std::string(std::strerror(errno)));
@@ -30,15 +30,21 @@ namespace Common {
   }
 
   auto TCPServer::sendAndRecv() noexcept -> void {
+    bool recv = false;
+
     for (auto socket: receive_sockets_) {
-      socket->sendAndRecv();
+      if(socket->sendAndRecv())
+        recv = true;
     }
+    if(recv)
+      recv_finished_callback_();
+
     for (auto socket: send_sockets_) {
       socket->sendAndRecv();
     }
   }
 
-  auto TCPServer::add(TCPSocket *socket) noexcept {
+  auto TCPServer::add(TCPSocket *socket) {
     if (!epoll_add(socket))
       return false;
 
@@ -49,7 +55,7 @@ namespace Common {
     return true;
   }
 
-  auto TCPServer::del(TCPSocket *socket) noexcept {
+  auto TCPServer::del(TCPSocket *socket) {
     epoll_del(socket);
 
     sockets_.erase(socket);
@@ -57,11 +63,11 @@ namespace Common {
     send_sockets_.erase(socket);
   }
 
-  auto TCPServer::send(TCPSocket *) noexcept {
+  auto TCPServer::send(TCPSocket *) {
     return true;
   }
 
-  auto TCPServer::disconnect(TCPSocket *socket) noexcept {
+  auto TCPServer::disconnect(TCPSocket *socket) {
     if (sockets_.find(socket) != sockets_.end() && disconnected_sockets_.find(socket) == disconnected_sockets_.end()) {
       disconnected_sockets_.insert(socket);
     }
@@ -82,27 +88,27 @@ namespace Common {
 
       if (event.events & EPOLLIN) {
         if (socket == &listener_socket_) {
-          logger_.log("%:% %() EPOLLIN listener_socket:%\n", __FILE__, __LINE__, __FUNCTION__, socket->fd_);
+          logger_.log("%:% %() % EPOLLIN listener_socket:%\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_), socket->fd_);
           have_new_connection = true;
           continue;
         }
-        logger_.log("%:% %() EPOLLIN socket:%\n", __FILE__, __LINE__, __FUNCTION__, socket->fd_);
+        logger_.log("%:% %() % EPOLLIN socket:%\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_), socket->fd_);
         receive_sockets_.insert(socket);
       }
 
       if (event.events & EPOLLOUT) {
-        logger_.log("%:% %() EPOLLOUT socket:%\n", __FILE__, __LINE__, __FUNCTION__, socket->fd_);
+        logger_.log("%:% %() % EPOLLOUT socket:%\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_), socket->fd_);
         send_sockets_.insert(socket);
       }
 
       if (event.events & (EPOLLERR | EPOLLHUP)) {
-        logger_.log("%:% %() EPOLLERR socket:%\n", __FILE__, __LINE__, __FUNCTION__, socket->fd_);
+        logger_.log("%:% %() % EPOLLERR socket:%\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_), socket->fd_);
         receive_sockets_.insert(socket);
       }
     }
 
     while (have_new_connection) {
-      logger_.log("%:% %() have_new_connection\n", __FILE__, __LINE__, __FUNCTION__);
+      logger_.log("%:% %() % have_new_connection\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_));
       sockaddr_storage addr;
       socklen_t addr_len = sizeof(addr);
       int fd = accept(listener_socket_.fd_, reinterpret_cast<sockaddr *>(&addr), &addr_len);
@@ -111,7 +117,7 @@ namespace Common {
 
       ASSERT(setNonBlocking(fd) && setNoDelay(fd), "Failed to set non-blocking or no-delay on socket:" + std::to_string(fd));
 
-      logger_.log("%:% %() accepted socket:%\n", __FILE__, __LINE__, __FUNCTION__, fd);
+      logger_.log("%:% %() % accepted socket:%\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_), fd);
 
       TCPSocket *socket = new TCPSocket(logger_);
       socket->fd_ = fd;

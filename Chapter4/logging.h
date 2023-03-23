@@ -8,6 +8,7 @@
 #include "macros.h"
 #include "lf_queue.h"
 #include "thread_utils.h"
+#include "time_utils.h"
 
 namespace Common {
   enum class LogType : int8_t {
@@ -41,8 +42,8 @@ namespace Common {
   public:
     auto flushQueue() noexcept {
       while (running_) {
-        auto next = queue_.getNextToRead();
-        while (next) {
+
+        for (auto next = queue_.getNextToRead(); queue_.size() && next; next = queue_.getNextToRead()) {
           switch (next->type_) {
             case LogType::CHAR:
               file_ << next->u_.c;
@@ -73,11 +74,11 @@ namespace Common {
               break;
           }
           queue_.updateReadIndex();
-          next = queue_.getNextToRead();
         }
+        file_.flush();
 
         using namespace std::literals::chrono_literals;
-        std::this_thread::sleep_for(1ms);
+        std::this_thread::sleep_for(10ms);
       }
     }
 
@@ -85,14 +86,15 @@ namespace Common {
         : file_name_(file_name), queue_(LOG_QUEUE_SIZE) {
       file_.open(file_name);
       ASSERT(file_.is_open(), "Could not open log file:" + file_name);
-      logger_thread_ = createAndStartThread(-1, "Common/Logger", [this]() { flushQueue(); });
+      logger_thread_ = createAndStartThread(-1, "Common/Logger " + file_name_, [this]() { flushQueue(); });
       ASSERT(logger_thread_ != nullptr, "Failed to start Logger thread.");
     }
 
     ~Logger() {
-      std::cerr << "Flushing and closing Logger for " << file_name_ << std::endl;
+      std::string time_str;
+      std::cerr << Common::getCurrentTimeStr(&time_str) << " Flushing and closing Logger for " << file_name_ << std::endl;
 
-      while (!queue_.empty()) {
+      while (queue_.size()) {
         using namespace std::literals::chrono_literals;
         std::this_thread::sleep_for(1s);
       }
@@ -100,6 +102,7 @@ namespace Common {
       logger_thread_->join();
 
       file_.close();
+      std::cerr << Common::getCurrentTimeStr(&time_str) << " Logger for " << file_name_ << " exiting." << std::endl;
     }
 
     auto pushValue(const LogElement &log_element) noexcept {
@@ -155,7 +158,7 @@ namespace Common {
     }
 
     template<typename T, typename... A>
-    auto log(const char *s, T &value, A... args) noexcept {
+    auto log(const char *s, const T &value, A... args) noexcept {
       while (*s) {
         if (*s == '%') {
           if (UNLIKELY(*(s + 1) == '%')) { // to allow %% -> % escape character.
@@ -185,10 +188,6 @@ namespace Common {
       }
     }
 
-    static void setDefaultLogger(Logger *logger) noexcept;
-
-    static Logger &getDefaultLogger() noexcept;
-
     // Deleted default, copy & move constructors and assignment-operators.
     Logger() = delete;
 
@@ -207,7 +206,5 @@ namespace Common {
     LFQueue<LogElement> queue_;
     std::atomic<bool> running_ = true;
     std::thread *logger_thread_ = nullptr;
-
-    static Logger *default_logger_;
   };
 }

@@ -10,8 +10,8 @@ namespace Common {
   constexpr size_t McastBufferSize = 64 * 1024 * 1024;
 
   struct McastSocket {
-    McastSocket(Logger& logger)
-    : logger_(logger) {
+    McastSocket(Logger &logger)
+        : logger_(logger) {
       send_buffer_ = new char[McastBufferSize];
       rcv_buffer_ = new char[McastBufferSize];
       recv_callback_ = [this](auto socket) { defaultRecvCallback(socket); };
@@ -25,21 +25,20 @@ namespace Common {
       rcv_buffer_ = nullptr;
     }
 
-    auto init(const std::string &ip, const std::string &iface, int port, bool is_listening) noexcept -> int;
+    auto init(const std::string &ip, const std::string &iface, int port, bool is_listening) -> int;
 
-    void destroy();
+    auto destroy() -> void;
 
-    bool join(const std::string &ip, const std::string &iface, int port);
+    auto join(const std::string &ip, const std::string &iface, int port) -> bool;
 
-    void leave(const std::string &ip, int port);
+    auto leave(const std::string &ip, int port);
 
-    bool sendAndRecv();
+    auto sendAndRecv() noexcept -> bool;
 
-    void send(const void *data, size_t len);
+    auto send(const void *data, size_t len) noexcept -> void;
 
-    void defaultRecvCallback(McastSocket *socket) {
-      logger_.log("%:% %() McastSocket::defaultRecvCallback() socket:% len:%\n", __FILE__, __LINE__, __FUNCTION__, socket->fd_,
-                                     socket->next_rcv_valid_index_);
+    void defaultRecvCallback(McastSocket *socket) noexcept {
+      logger_.log("%:% %() % McastSocket::defaultRecvCallback() socket:% len:%\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_), socket->fd_, socket->next_rcv_valid_index_);
     }
 
     int fd_ = -1;
@@ -53,6 +52,7 @@ namespace Common {
 
     std::function<void(McastSocket *s)> recv_callback_;
 
-    Logger& logger_;
+    std::string time_str_;
+    Logger &logger_;
   };
 }

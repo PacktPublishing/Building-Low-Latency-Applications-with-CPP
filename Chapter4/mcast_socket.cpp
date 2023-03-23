@@ -1,13 +1,13 @@
 #include "common/mcast_socket.h"
 
 namespace Common {
-  auto McastSocket::init(const std::string &ip, const std::string &iface, int port, bool is_listening) noexcept -> int {
+  auto McastSocket::init(const std::string &ip, const std::string &iface, int port, bool is_listening) -> int {
     destroy();
-    fd_ = createSocket(logger_, ip, iface, port, true, false, is_listening, 32);
+    fd_ = createSocket(logger_, ip, iface, port, true, false, is_listening, 32, false);
     return fd_;
   }
 
-  void McastSocket::destroy() {
+  auto McastSocket::destroy() -> void {
     close(fd_);
     fd_ = -1;
   }
@@ -17,16 +17,17 @@ namespace Common {
     return Common::join(fd_, ip, iface, port);
   }
 
-  void McastSocket::leave(const std::string &, int) {
+  auto McastSocket::leave(const std::string &, int) {
     // TODO: Remove from poll-fd list.
     destroy();
   }
 
-  bool McastSocket::sendAndRecv() {
+  auto McastSocket::sendAndRecv() noexcept -> bool {
     const ssize_t n_rcv = recv(fd_, rcv_buffer_ + next_rcv_valid_index_, McastBufferSize - next_rcv_valid_index_, MSG_DONTWAIT);
     if (n_rcv > 0) {
       next_rcv_valid_index_ += n_rcv;
-      logger_.log("%:% %() read socket:% len:%\n", __FILE__, __LINE__, __FUNCTION__, fd_, next_rcv_valid_index_);
+      logger_.log("%:% %() % read socket:% len:%\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_), fd_,
+                  next_rcv_valid_index_);
       recv_callback_(this);
     }
 
@@ -41,7 +42,7 @@ namespace Common {
         break;
       }
 
-      logger_.log("%:% %() send socket:% len:%\n", __FILE__, __LINE__, __FUNCTION__, fd_, n);
+      logger_.log("%:% %() % send socket:% len:%\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_), fd_, n);
 
       n_send -= n;
       ASSERT(n == n_send_this_msg, "Don't support partial send lengths yet.");
@@ -51,10 +52,11 @@ namespace Common {
     return (n_rcv > 0);
   }
 
-  void McastSocket::send(const void *data, size_t len) {
+  auto McastSocket::send(const void *data, size_t len) noexcept -> void {
     if (len > 0) {
       memcpy(send_buffer_ + next_send_valid_index_, data, len);
       next_send_valid_index_ += len;
+      ASSERT(next_send_valid_index_ < McastBufferSize, "Mcast socket buffer filled up and sendAndRecv() not called.");
     }
   }
 }
