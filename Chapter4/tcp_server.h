@@ -1,6 +1,6 @@
 #pragma once
 
-#include "common/tcp_socket.h"
+#include "tcp_socket.h"
 
 namespace Common {
   struct TCPServer {
@@ -22,13 +22,14 @@ namespace Common {
 
     auto destroy();
 
-    auto epoll_add(TCPSocket *socket);
-
-    auto epoll_del(TCPSocket *socket);
-
     auto poll() noexcept -> void;
 
     auto sendAndRecv() noexcept -> void;
+
+  private:
+    auto epoll_add(TCPSocket *socket);
+
+    auto epoll_del(TCPSocket *socket);
 
     auto add(TCPSocket *socket);
 
@@ -38,6 +39,7 @@ namespace Common {
 
     auto disconnect(TCPSocket *socket);
 
+  public:
     int efd_ = -1;
     TCPSocket listener_socket_;
 

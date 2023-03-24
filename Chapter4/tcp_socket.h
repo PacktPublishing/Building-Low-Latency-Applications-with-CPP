@@ -2,8 +2,8 @@
 
 #include <functional>
 
-#include "common/socket_utils.h"
-#include "common/logging.h"
+#include "socket_utils.h"
+#include "logging.h"
 
 namespace Common {
   constexpr size_t TCPBufferSize = 64 * 1024 * 1024;

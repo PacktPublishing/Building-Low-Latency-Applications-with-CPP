@@ -1,4 +1,4 @@
-#include "common/mcast_socket.h"
+#include "mcast_socket.h"
 
 namespace Common {
   auto McastSocket::init(const std::string &ip, const std::string &iface, int port, bool is_listening) -> int {

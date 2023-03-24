@@ -2,9 +2,9 @@
 
 #include <functional>
 
-#include "common/socket_utils.h"
+#include "socket_utils.h"
 
-#include "common/logging.h"
+#include "logging.h"
 
 namespace Common {
   constexpr size_t McastBufferSize = 64 * 1024 * 1024;

@@ -17,7 +17,7 @@
 
 #include "macros.h"
 
-#include "common/logging.h"
+#include "logging.h"
 
 namespace Common {
   constexpr int MaxTCPServerBacklog = 1024;

@@ -2,6 +2,9 @@
 
 #include <cstdint>
 #include <vector>
+#include <string>
+
+#include "macros.h"
 
 namespace Common {
   template<typename T>
@@ -32,6 +35,18 @@ namespace Common {
       store_[elem_index].is_free_ = true;
     }
 
+    // Deleted default, copy & move constructors and assignment-operators.
+    MemPool() = delete;
+
+    MemPool(const MemPool &) = delete;
+
+    MemPool(const MemPool &&) = delete;
+
+    MemPool &operator=(const MemPool &) = delete;
+
+    MemPool &operator=(const MemPool &&) = delete;
+
+  private:
     auto updateNextFreeIndex() noexcept {
       const auto initial_free_index = next_free_index_;
       while (!store_[next_free_index_].is_free_) {
@@ -45,18 +60,6 @@ namespace Common {
       }
     }
 
-    // Deleted default, copy & move constructors and assignment-operators.
-    MemPool() = delete;
-
-    MemPool(const MemPool &) = delete;
-
-    MemPool(const MemPool &&) = delete;
-
-    MemPool &operator=(const MemPool &) = delete;
-
-    MemPool &operator=(const MemPool &&) = delete;
-
-  private:
     // It is better to have one vector of structs with two objects than two vectors of one object.
     // Consider how these are accessed and cache performance.
     struct ObjectBlock {
