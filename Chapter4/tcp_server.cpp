@@ -88,8 +88,8 @@ namespace Common {
 
       if (event.events & (EPOLLERR | EPOLLHUP)) {
         logger_.log("%:% %() % EPOLLERR socket:%\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_), socket->fd_);
-        if(std::find(receive_sockets_.begin(), receive_sockets_.end(), socket) == receive_sockets_.end())
-          receive_sockets_.push_back(socket);
+        if(std::find(disconnected_sockets_.begin(), disconnected_sockets_.end(), socket) == disconnected_sockets_.end())
+          disconnected_sockets_.push_back(socket);
       }
     }
 
