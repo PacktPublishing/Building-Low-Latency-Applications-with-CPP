@@ -26,6 +26,17 @@ namespace Common {
 
     auto sendAndRecv() noexcept -> void;
 
+    // Deleted default, copy & move constructors and assignment-operators.
+    TCPServer() = delete;
+
+    TCPServer(const TCPServer &) = delete;
+
+    TCPServer(const TCPServer &&) = delete;
+
+    TCPServer &operator=(const TCPServer &) = delete;
+
+    TCPServer &operator=(const TCPServer &&) = delete;
+
   private:
     auto epoll_add(TCPSocket *socket);
 
