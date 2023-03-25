@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# TODO - point these to the correct binary locations on your system.
 CMAKE="/home/sghosh/.local/share/JetBrains/Toolbox/apps/CLion/ch-0/222.3739.54/bin/cmake/linux/bin/cmake"
 NINJA="/home/sghosh/.local/share/JetBrains/Toolbox/apps/CLion/ch-0/222.3739.54/bin/ninja/linux/ninja"
 
