@@ -31,20 +31,16 @@ namespace Common {
 
     auto epoll_del(TCPSocket *socket);
 
-    auto add(TCPSocket *socket);
-
     auto del(TCPSocket *socket);
 
     auto send(TCPSocket *socket);
-
-    auto disconnect(TCPSocket *socket);
 
   public:
     int efd_ = -1;
     TCPSocket listener_socket_;
 
     epoll_event events_[1024];
-    std::unordered_set<TCPSocket *> sockets_, receive_sockets_, send_sockets_, disconnected_sockets_;
+    std::vector<TCPSocket *> sockets_, receive_sockets_, send_sockets_, disconnected_sockets_;
 
     std::function<void(TCPSocket *s, Nanos rx_time)> recv_callback_;
     std::function<void()> recv_finished_callback_;

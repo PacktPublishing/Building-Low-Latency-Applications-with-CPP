@@ -44,33 +44,16 @@ namespace Common {
     }
   }
 
-  auto TCPServer::add(TCPSocket *socket) {
-    if (!epoll_add(socket))
-      return false;
-
-    sockets_.insert(socket);
-    receive_sockets_.insert(socket);
-    send_sockets_.insert(socket);
-
-    return true;
-  }
-
   auto TCPServer::del(TCPSocket *socket) {
     epoll_del(socket);
 
-    sockets_.erase(socket);
-    receive_sockets_.erase(socket);
-    send_sockets_.erase(socket);
+    sockets_.erase(std::remove(sockets_.begin(), sockets_.end(), socket), sockets_.end());
+    receive_sockets_.erase(std::remove(receive_sockets_.begin(), receive_sockets_.end(), socket), receive_sockets_.end());
+    send_sockets_.erase(std::remove(send_sockets_.begin(), send_sockets_.end(), socket), send_sockets_.end());
   }
 
   auto TCPServer::send(TCPSocket *) {
     return true;
-  }
-
-  auto TCPServer::disconnect(TCPSocket *socket) {
-    if (sockets_.find(socket) != sockets_.end() && disconnected_sockets_.find(socket) == disconnected_sockets_.end()) {
-      disconnected_sockets_.insert(socket);
-    }
   }
 
   auto TCPServer::poll() noexcept -> void {
@@ -93,17 +76,20 @@ namespace Common {
           continue;
         }
         logger_.log("%:% %() % EPOLLIN socket:%\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_), socket->fd_);
-        receive_sockets_.insert(socket);
+        if(std::find(receive_sockets_.begin(), receive_sockets_.end(), socket) == receive_sockets_.end())
+          receive_sockets_.push_back(socket);
       }
 
       if (event.events & EPOLLOUT) {
         logger_.log("%:% %() % EPOLLOUT socket:%\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_), socket->fd_);
-        send_sockets_.insert(socket);
+        if(std::find(send_sockets_.begin(), send_sockets_.end(), socket) == send_sockets_.end())
+          send_sockets_.push_back(socket);
       }
 
       if (event.events & (EPOLLERR | EPOLLHUP)) {
         logger_.log("%:% %() % EPOLLERR socket:%\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_), socket->fd_);
-        receive_sockets_.insert(socket);
+        if(std::find(receive_sockets_.begin(), receive_sockets_.end(), socket) == receive_sockets_.end())
+          receive_sockets_.push_back(socket);
       }
     }
 
@@ -124,8 +110,10 @@ namespace Common {
       socket->recv_callback_ = recv_callback_;
       ASSERT(epoll_add(socket), "Unable to add socket. error:" + std::string(std::strerror(errno)));
 
-      sockets_.insert(socket);
-      receive_sockets_.insert(socket);
+      if(std::find(sockets_.begin(), sockets_.end(), socket) == sockets_.end())
+        sockets_.push_back(socket);
+      if(std::find(receive_sockets_.begin(), receive_sockets_.end(), socket) == receive_sockets_.end())
+        receive_sockets_.push_back(socket);
     }
   }
 }
