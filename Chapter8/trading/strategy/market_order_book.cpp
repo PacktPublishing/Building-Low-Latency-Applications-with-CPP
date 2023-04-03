@@ -26,10 +26,7 @@ namespace Trading {
         break;
       case Exchange::MarketUpdateType::MODIFY: {
         auto order = oid_to_order_.at(market_update->order_id_);
-        removeOrder(order);
-        order = order_pool_.allocate(market_update->order_id_, market_update->side_, market_update->price_,
-                                     market_update->qty_, market_update->priority_, nullptr, nullptr);
-        addOrder(order);
+        order->qty_ = market_update->qty_;
       }
         break;
       case Exchange::MarketUpdateType::CANCEL: {
