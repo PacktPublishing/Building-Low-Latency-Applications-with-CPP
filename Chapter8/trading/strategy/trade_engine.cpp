@@ -43,6 +43,7 @@ namespace Trading {
       for (auto client_response = incoming_ogw_responses_->getNextToRead(); client_response; client_response = incoming_ogw_responses_->getNextToRead()) {
         logger_.log("%:% %() % Processing %\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_),
                     client_response->toString().c_str());
+        onOrderUpdate(client_response);
         incoming_ogw_responses_->updateReadIndex();
         last_event_time_ = Common::getCurrentNanos();
       }
@@ -68,5 +69,10 @@ namespace Trading {
   auto TradeEngine::onTradeUpdate(const Exchange::MEMarketUpdate *market_update) noexcept -> void {
     logger_.log("%:% %() % %\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_),
                 market_update->toString().c_str());
+  }
+
+  auto TradeEngine::onOrderUpdate(const Exchange::MEClientResponse* client_response) noexcept -> void {
+    logger_.log("%:% %() % %\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_),
+                client_response->toString().c_str());
   }
 }

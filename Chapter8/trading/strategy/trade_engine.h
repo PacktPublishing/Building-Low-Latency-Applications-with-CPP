@@ -46,8 +46,9 @@ namespace Trading {
     auto sendClientRequest(const Exchange::MEClientRequest *client_request) noexcept -> void;
 
     auto onOrderBookUpdate(TickerId ticker_id, Price price, Side side) noexcept -> void;
-
     auto onTradeUpdate(const Exchange::MEMarketUpdate *market_update) noexcept -> void;
+
+    auto onOrderUpdate(const Exchange::MEClientResponse* client_response) noexcept -> void;
 
     auto initLastEventTime() {
       last_event_time_ = Common::getCurrentNanos();
