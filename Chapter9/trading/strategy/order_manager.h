@@ -37,6 +37,8 @@ namespace Trading {
           break;
         case Exchange::ClientResponseType::FILLED: {
           order->qty_ = client_response->leaves_qty_;
+          if(!order->qty_)
+            order->order_state_ = OMOrderState::DEAD;
         }
           break;
         case Exchange::ClientResponseType::CANCEL_REJECTED:
