@@ -11,7 +11,7 @@ using namespace Common;
 namespace Trading {
   class MarketMaker {
   public:
-    MarketMaker(Common::Logger *logger, TradeEngine *trade_engine, FeatureEngine *feature_engine,
+    MarketMaker(Common::Logger *logger, TradeEngine *trade_engine, const FeatureEngine *feature_engine,
                 OrderManager *order_manager,
                 const TradeEngineCfgHashMap &ticker_cfg);
 

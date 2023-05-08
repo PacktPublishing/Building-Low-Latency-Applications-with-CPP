@@ -38,7 +38,6 @@ namespace Trading {
 
   struct RiskInfo {
     const PositionInfo *position_info_ = nullptr;
-    const OMOrderSideHashMap *side_om_order_ = nullptr;
 
     RiskCfg risk_cfg_;
 
@@ -58,8 +57,6 @@ namespace Trading {
       std::stringstream ss;
       ss << "RiskInfo" << "["
          << "pos:" << position_info_->toString() << " "
-         << "bid:" << side_om_order_->at(sideToIndex(Side::BUY)).toString() << " "
-         << "ask:" << side_om_order_->at(sideToIndex(Side::SELL)).toString() << " "
          << risk_cfg_.toString()
          << "]";
 
@@ -71,8 +68,7 @@ namespace Trading {
 
   class RiskManager {
   public:
-    RiskManager(Common::Logger *logger, PositionKeeper *position_keeper,
-                OrderManager *order_manager, const TradeEngineCfgHashMap &ticker_cfg);
+    RiskManager(Common::Logger *logger, const PositionKeeper *position_keeper, const TradeEngineCfgHashMap &ticker_cfg);
 
     auto checkPreTradeRisk(TickerId ticker_id, Side side, Qty qty) const noexcept {
       return ticker_risk_.at(ticker_id).checkPreTradeRisk(side, qty);

@@ -12,7 +12,7 @@ namespace Trading {
         feature_engine_(&logger_),
         position_keeper_(&logger_),
         order_manager_(&logger_, this, risk_manager_),
-        risk_manager_(&logger_, &position_keeper_, &order_manager_, ticker_cfg) {
+        risk_manager_(&logger_, &position_keeper_, ticker_cfg) {
     for (size_t i = 0; i < ticker_order_book_.size(); ++i) {
       ticker_order_book_[i] = new MarketOrderBook(i, &logger_);
       ticker_order_book_[i]->setTradeEngine(this);
