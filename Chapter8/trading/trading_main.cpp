@@ -11,13 +11,16 @@ Trading::TradeEngine *trade_engine = nullptr;
 Trading::MarketDataConsumer *market_data_consumer = nullptr;
 Trading::OrderGateway *order_gateway = nullptr;
 
-int main(int, char **argv) {
+// ./trading_main CLIENT_ID ALGO_TYPE [CLIP_1 THRESH_1 MAX_ORDER_SIZE_1 MAX_POS_1 MAX_LOSS_1] [CLIP_2 THRESH_2 MAX_ORDER_SIZE_2 MAX_POS_2 MAX_LOSS_2] ...
+int main(int argc, char **argv) {
   const Common::ClientId client_id = atoi(argv[1]);
   srand(client_id);
 
+  const auto algo_type = stringToAlgoType(argv[2]);
+
   logger = new Common::Logger("trading_main_" + std::to_string(client_id) + ".log");
 
-  const int sleep_time = 50 * 1000;
+  const int sleep_time = 20 * 1000;
 
   Exchange::ClientRequestLFQueue client_requests(ME_MAX_CLIENT_UPDATES);
   Exchange::ClientResponseLFQueue client_responses(ME_MAX_CLIENT_UPDATES);
@@ -25,8 +28,23 @@ int main(int, char **argv) {
 
   std::string time_str;
 
+  TradeEngineCfgHashMap ticker_cfg;
+
+  // [CLIP_1 THRESH_1 MAX_ORDER_SIZE_1 MAX_POS_1 MAX_LOSS_1] [CLIP_2 THRESH_2 MAX_ORDER_SIZE_2 MAX_POS_2 MAX_LOSS_2] ...
+  size_t next_ticker_id = 0;
+  for (int i = 3; i < argc; i += 5, ++next_ticker_id) {
+    ticker_cfg.at(next_ticker_id) = {static_cast<Qty>(std::atoi(argv[i])), std::atof(argv[i + 1]),
+                                     {static_cast<Qty>(std::atoi(argv[i + 2])),
+                                      static_cast<Qty>(std::atoi(argv[i + 3])),
+                                      std::atof(argv[i + 4])}};
+  }
+
   logger->log("%:% %() % Starting Trade Engine...\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str));
-  trade_engine = new Trading::TradeEngine(client_id, &client_requests, &client_responses, &market_updates);
+  trade_engine = new Trading::TradeEngine(client_id, algo_type,
+                                          ticker_cfg,
+                                          &client_requests,
+                                          &client_responses,
+                                          &market_updates);
   trade_engine->start();
 
   const std::string order_gw_ip = "127.0.0.1";
@@ -49,35 +67,38 @@ int main(int, char **argv) {
 
   usleep(10 * 1000 * 1000);
 
-  Common::OrderId order_id = client_id * 1000;
-
   trade_engine->initLastEventTime();
-  std::vector<Exchange::MEClientRequest> client_requests_vec;
-  std::array<Price, ME_MAX_TICKERS> ticker_base_price;
-  for(size_t i = 0; i < ME_MAX_TICKERS; ++i)
-    ticker_base_price[i] = (rand() % 100) + 100;
-  for (size_t i = 0; i < 1000; ++i) {
-    const Common::TickerId ticker_id = rand() % Common::ME_MAX_TICKERS;
-    const Price price = ticker_base_price[ticker_id] + (rand() % 10) + 1;
-    const Qty qty = 1 + (rand() % 10) + 1;
-    const Side side = (rand() % 2 ? Common::Side::BUY : Common::Side::SELL);
 
-    Exchange::MEClientRequest new_request{Exchange::ClientRequestType::NEW, client_id, ticker_id, order_id++, side, price, qty};
-    trade_engine->sendClientRequest(&new_request);
-    usleep(sleep_time);
+  if (algo_type == AlgoType::RANDOM) {
+    Common::OrderId order_id = client_id * 1000;
+    std::vector<Exchange::MEClientRequest> client_requests_vec;
+    std::array<Price, ME_MAX_TICKERS> ticker_base_price;
+    for (size_t i = 0; i < ME_MAX_TICKERS; ++i)
+      ticker_base_price[i] = (rand() % 100) + 100;
+    for (size_t i = 0; i < 10000; ++i) {
+      const Common::TickerId ticker_id = rand() % Common::ME_MAX_TICKERS;
+      const Price price = ticker_base_price[ticker_id] + (rand() % 10) + 1;
+      const Qty qty = 1 + (rand() % 100) + 1;
+      const Side side = (rand() % 2 ? Common::Side::BUY : Common::Side::SELL);
 
-    client_requests_vec.push_back(new_request);
-    const auto cxl_index = rand() % client_requests_vec.size();
-    auto cxl_request = client_requests_vec[cxl_index];
-    cxl_request.type_ = Exchange::ClientRequestType::CANCEL;
-    trade_engine->sendClientRequest(&cxl_request);
-    usleep(sleep_time);
+      Exchange::MEClientRequest new_request{Exchange::ClientRequestType::NEW, client_id, ticker_id, order_id++, side,
+                                            price, qty};
+      trade_engine->sendClientRequest(&new_request);
+      usleep(sleep_time);
 
-    if (trade_engine->silentSeconds() >= 60) {
-      logger->log("%:% %() % Stopping early because been silent for % seconds...\n", __FILE__, __LINE__, __FUNCTION__,
-                  Common::getCurrentTimeStr(&time_str), trade_engine->silentSeconds());
+      client_requests_vec.push_back(new_request);
+      const auto cxl_index = rand() % client_requests_vec.size();
+      auto cxl_request = client_requests_vec[cxl_index];
+      cxl_request.type_ = Exchange::ClientRequestType::CANCEL;
+      trade_engine->sendClientRequest(&cxl_request);
+      usleep(sleep_time);
 
-      break;
+      if (trade_engine->silentSeconds() >= 60) {
+        logger->log("%:% %() % Stopping early because been silent for % seconds...\n", __FILE__, __LINE__, __FUNCTION__,
+                    Common::getCurrentTimeStr(&time_str), trade_engine->silentSeconds());
+
+        break;
+      }
     }
   }
 
@@ -86,7 +107,7 @@ int main(int, char **argv) {
                 Common::getCurrentTimeStr(&time_str), trade_engine->silentSeconds());
 
     using namespace std::literals::chrono_literals;
-    std::this_thread::sleep_for(10s);
+    std::this_thread::sleep_for(30s);
   }
 
   trade_engine->stop();

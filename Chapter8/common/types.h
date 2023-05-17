@@ -2,6 +2,8 @@
 
 #include <cstdint>
 #include <limits>
+#include <sstream>
+#include <array>
 
 #include "common/macros.h"
 
@@ -84,7 +86,8 @@ namespace Common {
   enum class Side : int8_t {
     INVALID = 0,
     BUY = 1,
-    SELL = -1
+    SELL = -1,
+    MAX = 2
   };
 
   inline auto sideToString(Side side) -> std::string {
@@ -95,8 +98,90 @@ namespace Common {
         return "SELL";
       case Side::INVALID:
         return "INVALID";
+      case Side::MAX:
+        return "MAX";
     }
 
     return "UNKNOWN";
   }
+
+  inline constexpr auto sideToIndex(Side side) noexcept {
+    return static_cast<size_t>(side) + 1;
+  }
+
+  inline constexpr auto sideToValue(Side side) noexcept {
+    return static_cast<int>(side);
+  }
+
+  enum class AlgoType : int8_t {
+    INVALID = 0,
+    RANDOM = 1,
+    MAKER = 2,
+    TAKER = 3,
+    MAX = 4
+  };
+
+  inline auto algoTypeToString(AlgoType type) -> std::string {
+    switch (type) {
+      case AlgoType::RANDOM:
+        return "RANDOM";
+      case AlgoType::MAKER:
+        return "MAKER";
+      case AlgoType::TAKER:
+        return "TAKER";
+      case AlgoType::INVALID:
+        return "INVALID";
+      case AlgoType::MAX:
+        return "MAX";
+    }
+
+    return "UNKNOWN";
+  }
+
+  inline auto stringToAlgoType(const std::string &str) -> AlgoType {
+    for (auto i = static_cast<int>(AlgoType::INVALID); i <= static_cast<int>(AlgoType::MAX); ++i) {
+      const auto algo_type = static_cast<AlgoType>(i);
+      if (algoTypeToString(algo_type) == str)
+        return algo_type;
+    }
+
+    return AlgoType::INVALID;
+  }
+
+  struct RiskCfg {
+    Qty max_order_size_ = 0;
+    Qty max_position_ = 0;
+    double max_loss_ = 0;
+
+    auto toString() const {
+      std::stringstream ss;
+
+      ss << "RiskCfg{"
+         << "max-order-size:" << qtyToString(max_order_size_) << " "
+         << "max-position:" << qtyToString(max_position_) << " "
+         << "max-loss:" << max_loss_
+         << "}";
+
+      return ss.str();
+    }
+  };
+
+  struct TradeEngineCfg {
+    Qty clip_ = 0;
+    double threshold_ = 0;
+    RiskCfg risk_cfg_;
+
+    auto toString() const {
+      std::stringstream ss;
+      ss << "TradeEngineCfg{"
+         << "clip:" << qtyToString(clip_) << " "
+         << "thresh:" << threshold_ << " "
+         << "risk:" << risk_cfg_.toString()
+         << "}";
+
+      return ss.str();
+    }
+  };
+
+  typedef std::array<TradeEngineCfg, ME_MAX_TICKERS> TradeEngineCfgHashMap;
 }

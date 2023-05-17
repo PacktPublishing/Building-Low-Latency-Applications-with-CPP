@@ -17,6 +17,9 @@ namespace Trading {
   }
 
   auto MarketOrderBook::onMarketUpdate(const Exchange::MEMarketUpdate *market_update) noexcept -> void {
+    const auto bid_updated = (bids_by_price_ && market_update->side_ == Side::BUY && market_update->price_ >= bids_by_price_->price_);
+    const auto ask_updated = (asks_by_price_ && market_update->side_ == Side::SELL && market_update->price_ <= asks_by_price_->price_);
+
     switch (market_update->type_) {
       case Exchange::MarketUpdateType::ADD: {
         auto order = order_pool_.allocate(market_update->order_id_, market_update->side_, market_update->price_,
@@ -35,7 +38,7 @@ namespace Trading {
       }
         break;
       case Exchange::MarketUpdateType::TRADE: {
-        trade_engine_->onTradeUpdate(market_update);
+        trade_engine_->onTradeUpdate(market_update, this);
         return;
       }
         break;
@@ -67,10 +70,12 @@ namespace Trading {
         break;
     }
 
-    trade_engine_->onOrderBookUpdate(market_update->ticker_id_, market_update->price_, market_update->side_);
+    updateBBO(bid_updated, ask_updated);
 
-    logger_->log("%:% %() % OrderBook\n%\n", __FILE__, __LINE__, __FUNCTION__,
-                 Common::getCurrentTimeStr(&time_str_), toString(false, true));
+    logger_->log("%:% %() % % %", __FILE__, __LINE__, __FUNCTION__,
+                 Common::getCurrentTimeStr(&time_str_), market_update->toString(), bbo_.toString());
+
+    trade_engine_->onOrderBookUpdate(market_update->ticker_id_, market_update->price_, market_update->side_, this);
   }
 
   auto MarketOrderBook::toString(bool detailed, bool validity_check) const -> std::string {
