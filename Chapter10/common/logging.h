@@ -205,7 +205,7 @@ namespace Common {
     std::ofstream file_;
 
     LFQueue<LogElement> queue_;
-    std::atomic<bool> running_ = true;
+    std::atomic<bool> running_ = {true};
     std::thread *logger_thread_ = nullptr;
   };
 }

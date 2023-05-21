@@ -4,13 +4,14 @@
 #include <fstream>
 #include <cstdio>
 
-#include "types.h"
 #include "macros.h"
 #include "lf_queue.h"
 #include "thread_utils.h"
 #include "time_utils.h"
 
 namespace Common {
+  constexpr size_t LOG_QUEUE_SIZE = 8 * 1024 * 1024;
+
   enum class LogType : int8_t {
     CHAR = 0,
     INTEGER = 1,
@@ -43,7 +44,7 @@ namespace Common {
     auto flushQueue() noexcept {
       while (running_) {
 
-        for (auto next = queue_.getNextToRead(); next; next = queue_.getNextToRead()) {
+        for (auto next = queue_.getNextToRead(); queue_.size() && next; next = queue_.getNextToRead()) {
           switch (next->type_) {
             case LogType::CHAR:
               file_ << next->u_.c;
@@ -94,7 +95,7 @@ namespace Common {
       std::string time_str;
       std::cerr << Common::getCurrentTimeStr(&time_str) << " Flushing and closing Logger for " << file_name_ << std::endl;
 
-      while (!queue_.empty()) {
+      while (queue_.size()) {
         using namespace std::literals::chrono_literals;
         std::this_thread::sleep_for(1s);
       }
@@ -204,7 +205,7 @@ namespace Common {
     std::ofstream file_;
 
     LFQueue<LogElement> queue_;
-    std::atomic<bool> running_ = true;
+    std::atomic<bool> running_ = {true};
     std::thread *logger_thread_ = nullptr;
   };
 }
