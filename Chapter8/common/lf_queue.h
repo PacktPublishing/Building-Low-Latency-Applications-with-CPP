@@ -51,9 +51,9 @@ namespace Common {
   private:
     std::vector<T> store_;
 
-    std::atomic<size_t> next_write_index_ = 0;
-    std::atomic<size_t> next_read_index_ = 0;
+    std::atomic<size_t> next_write_index_ = {0};
+    std::atomic<size_t> next_read_index_ = {0};
 
-    std::atomic<size_t> num_elements_ = 0;
+    std::atomic<size_t> num_elements_ = {0};
   };
 }
