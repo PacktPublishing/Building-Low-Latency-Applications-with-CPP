@@ -76,6 +76,7 @@ namespace Common {
           }
           queue_.updateReadIndex();
         }
+        file_.flush();
 
         using namespace std::literals::chrono_literals;
         std::this_thread::sleep_for(10ms);
@@ -204,7 +205,7 @@ namespace Common {
     std::ofstream file_;
 
     LFQueue<LogElement> queue_;
-    std::atomic<bool> running_ = true;
+    std::atomic<bool> running_ = {true};
     std::thread *logger_thread_ = nullptr;
   };
 }
