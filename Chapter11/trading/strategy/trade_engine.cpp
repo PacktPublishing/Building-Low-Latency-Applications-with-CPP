@@ -130,10 +130,11 @@ namespace Trading {
     logger_.log("%:% %() % %\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_),
                 client_response->toString().c_str());
 
-    START_MEASURE(Trading_PositionKeeper_addFill);
-    if (UNLIKELY(client_response->type_ == Exchange::ClientResponseType::FILLED))
+    if (UNLIKELY(client_response->type_ == Exchange::ClientResponseType::FILLED)) {
+      START_MEASURE(Trading_PositionKeeper_addFill);
       position_keeper_.addFill(client_response);
-    END_MEASURE(Trading_PositionKeeper_addFill, logger_);
+      END_MEASURE(Trading_PositionKeeper_addFill, logger_);
+    }
 
     START_MEASURE(Trading_TradeEngine_algoOnOrderUpdate_);
     algoOnOrderUpdate_(client_response);

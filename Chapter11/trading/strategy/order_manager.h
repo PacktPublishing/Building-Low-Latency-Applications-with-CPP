@@ -55,10 +55,11 @@ namespace Trading {
     auto moveOrder(OMOrder *order, TickerId ticker_id, Price price, Side side, Qty qty) noexcept {
       switch (order->order_state_) {
         case OMOrderState::LIVE: {
-          START_MEASURE(Trading_OrderManager_cancelOrder);
-          if(order->price_ != price)
+          if(order->price_ != price) {
+            START_MEASURE(Trading_OrderManager_cancelOrder);
             cancelOrder(order);
-          END_MEASURE(Trading_OrderManager_cancelOrder, (*logger_));
+            END_MEASURE(Trading_OrderManager_cancelOrder, (*logger_));
+          }
         }
           break;
         case OMOrderState::INVALID:
