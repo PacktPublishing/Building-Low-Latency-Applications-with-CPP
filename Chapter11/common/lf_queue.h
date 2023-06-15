@@ -10,7 +10,7 @@ namespace Common {
   template<typename T>
   class LFQueue final {
   public:
-    LFQueue(std::size_t num_elems) :
+    explicit LFQueue(std::size_t num_elems) :
         store_(num_elems, T()) /* pre-allocation of vector storage. */ {
     }
 
@@ -28,7 +28,7 @@ namespace Common {
     }
 
     auto updateReadIndex() noexcept {
-      next_read_index_ = (next_read_index_ + 1) % store_.size();
+      next_read_index_ = (next_read_index_ + 1) % store_.size(); // wrap around at the end of container size.
       ASSERT(num_elements_ != 0, "Read an invalid element in:" + std::to_string(pthread_self()));
       num_elements_--;
     }
@@ -37,7 +37,7 @@ namespace Common {
       return num_elements_.load();
     }
 
-    // Deleted default, copy & move constructors and assignment-operators.
+    /// Deleted default, copy & move constructors and assignment-operators.
     LFQueue() = delete;
 
     LFQueue(const LFQueue &) = delete;
@@ -49,8 +49,10 @@ namespace Common {
     LFQueue &operator=(const LFQueue &&) = delete;
 
   private:
+    /// Underlying container of data accessed in FIFO order.
     std::vector<T> store_;
 
+    /// Atomic trackers for next index to write new data to and read new data from.
     std::atomic<size_t> next_write_index_ = {0};
     std::atomic<size_t> next_read_index_ = {0};
 

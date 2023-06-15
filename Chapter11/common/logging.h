@@ -10,8 +10,10 @@
 #include "time_utils.h"
 
 namespace Common {
+  /// Maximum size of the lock free queue of data to be logged.
   constexpr size_t LOG_QUEUE_SIZE = 8 * 1024 * 1024;
 
+  /// Type of LogElement message.
   enum class LogType : int8_t {
     CHAR = 0,
     INTEGER = 1,
@@ -24,6 +26,7 @@ namespace Common {
     DOUBLE = 8
   };
 
+  /// Represents a single and primitive log entry.
   struct LogElement {
     LogType type_ = LogType::CHAR;
     union {
@@ -41,6 +44,7 @@ namespace Common {
 
   class Logger final {
   public:
+    /// Consumes from the lock free queue of log entries and writes to the output log file.
     auto flushQueue() noexcept {
       while (running_) {
 
@@ -106,6 +110,8 @@ namespace Common {
       std::cerr << Common::getCurrentTimeStr(&time_str) << " Logger for " << file_name_ << " exiting." << std::endl;
     }
 
+    /// Overloaded methods to write different log entry types to the lock free queue.
+    /// Creates a LogElement of the correct type and writes it to the lock free queue.
     auto pushValue(const LogElement &log_element) noexcept {
       *(queue_.getNextToWriteTo()) = log_element;
       queue_.updateWriteIndex();
@@ -158,6 +164,7 @@ namespace Common {
       pushValue(value.c_str());
     }
 
+    /// Parse the format string, substitute % with the variable number of arguments passed and write the string to the lock free queue.
     template<typename T, typename... A>
     auto log(const char *s, const T &value, A... args) noexcept {
       while (*s) {
@@ -175,7 +182,8 @@ namespace Common {
       FATAL("extra arguments provided to log()");
     }
 
-    // note that this is overloading not specialization. gcc does not allow inline specializations.
+    /// Overload for case where no substitution in the string is necessary.
+    /// Note that this is overloading not specialization. gcc does not allow inline specializations.
     auto log(const char *s) noexcept {
       while (*s) {
         if (*s == '%') {
@@ -189,7 +197,7 @@ namespace Common {
       }
     }
 
-    // Deleted default, copy & move constructors and assignment-operators.
+    /// Deleted default, copy & move constructors and assignment-operators.
     Logger() = delete;
 
     Logger(const Logger &) = delete;
@@ -201,11 +209,15 @@ namespace Common {
     Logger &operator=(const Logger &&) = delete;
 
   private:
+    /// File to which the log entries will be written.
     const std::string file_name_;
     std::ofstream file_;
 
+    /// Lock free queue of log elements from main logging thread to background formatting and disk writer thread.
     LFQueue<LogElement> queue_;
     std::atomic<bool> running_ = {true};
+
+    /// Background logging thread.
     std::thread *logger_thread_ = nullptr;
   };
 }

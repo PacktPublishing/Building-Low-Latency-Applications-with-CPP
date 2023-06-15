@@ -124,7 +124,7 @@ namespace Trading {
       return;
     }
 
-    for (auto &itr: final_events) {
+    for (const auto &itr: final_events) {
       auto next_write = incoming_md_updates_->getNextToWriteTo();
       *next_write = itr;
       incoming_md_updates_->updateWriteIndex();

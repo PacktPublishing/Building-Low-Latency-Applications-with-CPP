@@ -7,6 +7,7 @@ namespace Common {
     listener_socket_.destroy();
   }
 
+  /// Add and remove socket file descriptors to and from the EPOLL list.
   auto TCPServer::epoll_add(TCPSocket *socket) {
     epoll_event ev{};
     ev.events = EPOLLET | EPOLLIN;
@@ -18,6 +19,7 @@ namespace Common {
     return (epoll_ctl(efd_, EPOLL_CTL_DEL, socket->fd_, nullptr) != -1);
   }
 
+  /// Start listening for connections on the provided interface and port.
   auto TCPServer::listen(const std::string &iface, int port) -> void {
     destroy();
     efd_ = epoll_create(1);
@@ -29,14 +31,15 @@ namespace Common {
     ASSERT(epoll_add(&listener_socket_), "epoll_ctl() failed. error:" + std::string(std::strerror(errno)));
   }
 
+  /// Publish outgoing data from the send buffer and read incoming data from the receive buffer.
   auto TCPServer::sendAndRecv() noexcept -> void {
     bool recv = false;
 
     for (auto socket: receive_sockets_) {
-      if(socket->sendAndRecv())
+      if(socket->sendAndRecv()) // This will dispatch calls to recv_callback_().
         recv = true;
     }
-    if(recv)
+    if(recv) // There were some events and they have all been dispatched, inform listener.
       recv_finished_callback_();
 
     for (auto socket: send_sockets_) {
@@ -52,9 +55,11 @@ namespace Common {
     send_sockets_.erase(std::remove(send_sockets_.begin(), send_sockets_.end(), socket), send_sockets_.end());
   }
 
+  /// Check for new connections or dead connections and update containers that track the sockets.
   auto TCPServer::poll() noexcept -> void {
     const int max_events = 1 + sockets_.size();
 
+    // Remove sockets which are no longer connected.
     for (auto socket: disconnected_sockets_) {
       del(socket);
     }
@@ -65,6 +70,7 @@ namespace Common {
       epoll_event &event = events_[i];
       auto socket = reinterpret_cast<TCPSocket *>(event.data.ptr);
 
+      // Check for new connections.
       if (event.events & EPOLLIN) {
         if (socket == &listener_socket_) {
           logger_.log("%:% %() % EPOLLIN listener_socket:%\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_), socket->fd_);
@@ -89,6 +95,7 @@ namespace Common {
       }
     }
 
+    // Accept a new connection, create a TCPSocket and add it to our containers.
     while (have_new_connection) {
       logger_.log("%:% %() % have_new_connection\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_));
       sockaddr_storage addr;
