@@ -6,12 +6,13 @@
 
 #include "common/logging.h"
 
+/// Main components.
 Common::Logger *logger = nullptr;
 Trading::TradeEngine *trade_engine = nullptr;
 Trading::MarketDataConsumer *market_data_consumer = nullptr;
 Trading::OrderGateway *order_gateway = nullptr;
 
-// ./trading_main CLIENT_ID ALGO_TYPE [CLIP_1 THRESH_1 MAX_ORDER_SIZE_1 MAX_POS_1 MAX_LOSS_1] [CLIP_2 THRESH_2 MAX_ORDER_SIZE_2 MAX_POS_2 MAX_LOSS_2] ...
+/// ./trading_main CLIENT_ID ALGO_TYPE [CLIP_1 THRESH_1 MAX_ORDER_SIZE_1 MAX_POS_1 MAX_LOSS_1] [CLIP_2 THRESH_2 MAX_ORDER_SIZE_2 MAX_POS_2 MAX_LOSS_2] ...
 int main(int argc, char **argv) {
   if(argc < 3) {
     FATAL("USAGE trading_main CLIENT_ID ALGO_TYPE [CLIP_1 THRESH_1 MAX_ORDER_SIZE_1 MAX_POS_1 MAX_LOSS_1] [CLIP_2 THRESH_2 MAX_ORDER_SIZE_2 MAX_POS_2 MAX_LOSS_2] ...");
@@ -26,6 +27,7 @@ int main(int argc, char **argv) {
 
   const int sleep_time = 20 * 1000;
 
+  // The lock free queues to facilitate communication between order gateway <-> trade engine and market data consumer -> trade engine.
   Exchange::ClientRequestLFQueue client_requests(ME_MAX_CLIENT_UPDATES);
   Exchange::ClientResponseLFQueue client_responses(ME_MAX_CLIENT_UPDATES);
   Exchange::MEMarketUpdateLFQueue market_updates(ME_MAX_MARKET_UPDATES);
@@ -34,6 +36,7 @@ int main(int argc, char **argv) {
 
   TradeEngineCfgHashMap ticker_cfg;
 
+  // Parse and initialize the TradeEngineCfgHashMap above from the command line arguments.
   // [CLIP_1 THRESH_1 MAX_ORDER_SIZE_1 MAX_POS_1 MAX_LOSS_1] [CLIP_2 THRESH_2 MAX_ORDER_SIZE_2 MAX_POS_2 MAX_LOSS_2] ...
   size_t next_ticker_id = 0;
   for (int i = 3; i < argc; i += 5, ++next_ticker_id) {
@@ -73,6 +76,8 @@ int main(int argc, char **argv) {
 
   trade_engine->initLastEventTime();
 
+  // For the random trading algorithm, we simply implement it here instead of creating a new trading algorithm which is another possibility.
+  // Generate random orders with random attributes and randomly cancel some of them.
   if (algo_type == AlgoType::RANDOM) {
     Common::OrderId order_id = client_id * 1000;
     std::vector<Exchange::MEClientRequest> client_requests_vec;
