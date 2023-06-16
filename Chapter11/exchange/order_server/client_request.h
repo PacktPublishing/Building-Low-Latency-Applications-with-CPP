@@ -8,6 +8,7 @@
 using namespace Common;
 
 namespace Exchange {
+  /// Type of the order request sent by the trading client to the exchange.
   enum class ClientRequestType : uint8_t {
     INVALID = 0,
     NEW = 1,
@@ -26,8 +27,10 @@ namespace Exchange {
     return "UNKNOWN";
   }
 
+  /// These structures go over the wire / network, so the binary structures are packed to remove system dependent extra padding.
 #pragma pack(push, 1)
 
+  /// Client request structure used internally by the matching engine.
   struct MEClientRequest {
     ClientRequestType type_ = ClientRequestType::INVALID;
 
@@ -54,6 +57,7 @@ namespace Exchange {
     }
   };
 
+  /// Client request structure published over the network by the order gateway client.
   struct OMClientRequest {
     size_t seq_num_ = 0;
     MEClientRequest me_client_request_;
@@ -69,7 +73,8 @@ namespace Exchange {
     }
   };
 
-#pragma pack(pop)
+#pragma pack(pop) // Undo the packed binary structure directive moving forward.
 
+  /// Lock free queues of matching engine client order request messages.
   typedef LFQueue<MEClientRequest> ClientRequestLFQueue;
 }

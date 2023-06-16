@@ -8,6 +8,7 @@
 using namespace Common;
 
 namespace Exchange {
+  /// Type of the order response sent by the exchange to the trading client.
   enum class ClientResponseType : uint8_t {
     INVALID = 0,
     ACCEPTED = 1,
@@ -32,8 +33,10 @@ namespace Exchange {
     return "UNKNOWN";
   }
 
+  /// These structures go over the wire / network, so the binary structures are packed to remove system dependent extra padding.
 #pragma pack(push, 1)
 
+  /// Client response structure used internally by the matching engine.
   struct MEClientResponse {
     ClientResponseType type_ = ClientResponseType::INVALID;
     ClientId client_id_ = ClientId_INVALID;
@@ -63,6 +66,7 @@ namespace Exchange {
     }
   };
 
+  /// Client response structure published over the network by the order server.
   struct OMClientResponse {
     size_t seq_num_ = 0;
     MEClientResponse me_client_response_;
@@ -78,7 +82,8 @@ namespace Exchange {
     }
   };
 
-#pragma pack(pop)
+#pragma pack(pop) // Undo the packed binary structure directive moving forward.
 
+  /// Lock free queues of matching engine client order response messages.
   typedef LFQueue<MEClientResponse> ClientResponseLFQueue;
 }

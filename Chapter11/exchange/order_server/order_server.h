@@ -17,10 +17,12 @@ namespace Exchange {
 
     ~OrderServer();
 
+    /// Start and stop the order server main thread.
     auto start() -> void;
 
     auto stop() -> void;
 
+    /// Main run loop for this thread - accepts new client connections, receives client requests from them and sends client responses to them.
     auto run() noexcept {
       logger_.log("%:% %() %\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_));
       while (run_) {
@@ -50,6 +52,7 @@ namespace Exchange {
       }
     }
 
+    /// Read client request from the TCP receive buffer, check for sequence gaps and forward it to the FIFO sequencer.
     auto recvCallback(TCPSocket *socket, Nanos rx_time) noexcept {
       TTT_MEASURE(T1_OrderServer_TCP_read, logger_);
       logger_.log("%:% %() % Received socket:% len:% rx:%\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_),
@@ -61,11 +64,11 @@ namespace Exchange {
           auto request = reinterpret_cast<const OMClientRequest *>(socket->rcv_buffer_ + i);
           logger_.log("%:% %() % Received %\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_), request->toString());
 
-          if (UNLIKELY(cid_tcp_socket_[request->me_client_request_.client_id_] == nullptr)) {
+          if (UNLIKELY(cid_tcp_socket_[request->me_client_request_.client_id_] == nullptr)) { // first message from this ClientId.
             cid_tcp_socket_[request->me_client_request_.client_id_] = socket;
           }
 
-          if (cid_tcp_socket_[request->me_client_request_.client_id_] != socket) {
+          if (cid_tcp_socket_[request->me_client_request_.client_id_] != socket) { // TODO - change this to send a reject back to the client.
             logger_.log("%:% %() % Received ClientRequest from ClientId:% on different socket:% expected:%\n", __FILE__, __LINE__, __FUNCTION__,
                         Common::getCurrentTimeStr(&time_str_), request->me_client_request_.client_id_, socket->fd_,
                         cid_tcp_socket_[request->me_client_request_.client_id_]->fd_);
@@ -73,7 +76,7 @@ namespace Exchange {
           }
 
           auto &next_exp_seq_num = cid_next_exp_seq_num_[request->me_client_request_.client_id_];
-          if (request->seq_num_ != next_exp_seq_num) {
+          if (request->seq_num_ != next_exp_seq_num) { // TODO - change this to send a reject back to the client.
             logger_.log("%:% %() % Incorrect sequence number. ClientId:% SeqNum expected:% received:%\n", __FILE__, __LINE__, __FUNCTION__,
                         Common::getCurrentTimeStr(&time_str_), request->me_client_request_.client_id_, next_exp_seq_num, request->seq_num_);
             continue;
@@ -90,13 +93,14 @@ namespace Exchange {
       }
     }
 
+    /// End of reading incoming messages across all the TCP connections, sequence and publish the client requests to the matching engine.
     auto recvFinishedCallback() noexcept {
       START_MEASURE(Exchange_FIFOSequencer_sequenceAndPublish);
       fifo_sequencer_.sequenceAndPublish();
       END_MEASURE(Exchange_FIFOSequencer_sequenceAndPublish, logger_);
     }
 
-    // Deleted default, copy & move constructors and assignment-operators.
+    /// Deleted default, copy & move constructors and assignment-operators.
     OrderServer() = delete;
 
     OrderServer(const OrderServer &) = delete;
@@ -111,6 +115,7 @@ namespace Exchange {
     const std::string iface_;
     const int port_ = 0;
 
+    /// Lock free queue of outgoing client responses to be sent out to connected clients.
     ClientResponseLFQueue *outgoing_responses_ = nullptr;
 
     volatile bool run_ = false;
@@ -118,12 +123,19 @@ namespace Exchange {
     std::string time_str_;
     Logger logger_;
 
+    /// Hash map from ClientId -> the next sequence number to be sent on outgoing client responses.
     std::array<size_t, ME_MAX_NUM_CLIENTS> cid_next_outgoing_seq_num_;
+
+    /// Hash map from ClientId -> the next sequence number expected on incoming client requests.
     std::array<size_t, ME_MAX_NUM_CLIENTS> cid_next_exp_seq_num_;
+
+    /// Hash map from ClientId -> TCP socket / client connection.
     std::array<Common::TCPSocket *, ME_MAX_NUM_CLIENTS> cid_tcp_socket_;
 
+    /// TCP server instance listening for new client connections.
     Common::TCPServer tcp_server_;
 
+    /// FIFO sequencer responsible for making sure incoming client requests are processed in the order in which they were received.
     FIFOSequencer fifo_sequencer_;
   };
 }

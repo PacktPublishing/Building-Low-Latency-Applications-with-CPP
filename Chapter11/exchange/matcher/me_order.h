@@ -7,6 +7,7 @@
 using namespace Common;
 
 namespace Exchange {
+  /// Used by the matching engine to represent a single order in the limit order book.
   struct MEOrder {
     TickerId ticker_id_ = TickerId_INVALID;
     ClientId client_id_ = ClientId_INVALID;
@@ -17,10 +18,11 @@ namespace Exchange {
     Qty qty_ = Qty_INVALID;
     Priority priority_ = Priority_INVALID;
 
+    /// MEOrder also serves as a node in a doubly linked list of all orders at price level arranged in FIFO order.
     MEOrder *prev_order_ = nullptr;
     MEOrder *next_order_ = nullptr;
 
-    // only needed for use with MemPool.
+    /// Only needed for use with MemPool.
     MEOrder() = default;
 
     MEOrder(TickerId ticker_id, ClientId client_id, OrderId client_order_id, OrderId market_order_id, Side side, Price price,
@@ -31,18 +33,25 @@ namespace Exchange {
     auto toString() const -> std::string;
   };
 
+  /// Hash map from OrderId -> MEOrder.
   typedef std::array<MEOrder *, ME_MAX_ORDER_IDS> OrderHashMap;
+
+  /// Hash map from ClientId -> OrderId -> MEOrder.
   typedef std::array<OrderHashMap, ME_MAX_NUM_CLIENTS> ClientOrderHashMap;
 
+  /// Used by the matching engine to represent a price level in the limit order book.
+  /// Internally maintains a list of MEOrder objects arranged in FIFO order.
   struct MEOrdersAtPrice {
     Side side_ = Side::INVALID;
     Price price_ = Price_INVALID;
 
     MEOrder *first_me_order_ = nullptr;
 
+    /// MEOrdersAtPrice also serves as a node in a doubly linked list of price levels arranged in order from most aggressive to least aggressive price.
     MEOrdersAtPrice *prev_entry_ = nullptr;
     MEOrdersAtPrice *next_entry_ = nullptr;
 
+    /// Only needed for use with MemPool.
     MEOrdersAtPrice() = default;
 
     MEOrdersAtPrice(Side side, Price price, MEOrder *first_me_order, MEOrdersAtPrice *prev_entry, MEOrdersAtPrice *next_entry)
@@ -61,5 +70,6 @@ namespace Exchange {
     }
   };
 
+  /// Hash map from Price -> MEOrdersAtPrice.
   typedef std::array<MEOrdersAtPrice *, ME_MAX_PRICE_LEVELS> OrdersAtPriceHashMap;
 }

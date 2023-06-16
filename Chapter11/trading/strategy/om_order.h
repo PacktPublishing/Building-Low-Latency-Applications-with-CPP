@@ -7,6 +7,7 @@
 using namespace Common;
 
 namespace Trading {
+  /// Represents the type / action in the order structure in the order manager.
   enum class OMOrderState : int8_t {
     INVALID = 0,
     PENDING_NEW = 1,
@@ -32,6 +33,7 @@ namespace Trading {
     return "UNKNOWN";
   }
 
+  /// Internal structure used by the order manager to represent a single strategy order.
   struct OMOrder {
     TickerId ticker_id_ = TickerId_INVALID;
     OrderId order_id_ = OrderId_INVALID;
@@ -54,6 +56,9 @@ namespace Trading {
     }
   };
 
+  /// Hash map from Side -> OMOrder.
   typedef std::array<OMOrder, sideToIndex(Side::MAX) + 1> OMOrderSideHashMap;
+
+  /// Hash map from TickerId -> Side -> OMOrder.
   typedef std::array<OMOrderSideHashMap, ME_MAX_TICKERS> OMOrderTickerSideHashMap;
 }

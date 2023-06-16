@@ -16,6 +16,7 @@ namespace Trading {
     oid_to_order_.fill(nullptr);
   }
 
+  /// Process market data update and update the limit order book.
   auto MarketOrderBook::onMarketUpdate(const Exchange::MEMarketUpdate *market_update) noexcept -> void {
     const auto bid_updated = (bids_by_price_ && market_update->side_ == Side::BUY && market_update->price_ >= bids_by_price_->price_);
     const auto ask_updated = (asks_by_price_ && market_update->side_ == Side::SELL && market_update->price_ <= asks_by_price_->price_);
@@ -46,7 +47,7 @@ namespace Trading {
         return;
       }
         break;
-      case Exchange::MarketUpdateType::CLEAR: {
+      case Exchange::MarketUpdateType::CLEAR: { // Clear the full limit order book and deallocate MarketOrdersAtPrice and MarketOrder objects.
         for (auto &order: oid_to_order_) {
           if (order)
             order_pool_.deallocate(order);

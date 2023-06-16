@@ -16,12 +16,14 @@ namespace Trading {
 
     ~MarketOrderBook();
 
+    /// Process market data update and update the limit order book.
     auto onMarketUpdate(const Exchange::MEMarketUpdate *market_update) noexcept -> void;
 
     auto setTradeEngine(TradeEngine *trade_engine) {
       trade_engine_ = trade_engine;
     }
 
+    /// Update the BBO abstraction, the two boolean parameters represent if the buy or the sekk (or both) sides or both need to be updated.
     auto updateBBO(bool update_bid, bool update_ask) noexcept {
       if(update_bid) {
         if(bids_by_price_) {
@@ -56,7 +58,7 @@ namespace Trading {
 
     auto toString(bool detailed, bool validity_check) const -> std::string;
 
-    // Deleted default, copy & move constructors and assignment-operators.
+    /// Deleted default, copy & move constructors and assignment-operators.
     MarketOrderBook() = delete;
 
     MarketOrderBook(const MarketOrderBook &) = delete;
@@ -70,16 +72,23 @@ namespace Trading {
   private:
     const TickerId ticker_id_;
 
+    /// Parent trade engine that owns this limit order book, used to send notifications when book changes or trades occur.
     TradeEngine *trade_engine_ = nullptr;
 
+    /// Hash map from OrderId -> MarketOrder.
     OrderHashMap oid_to_order_;
 
+    /// Memory pool to manage MarketOrdersAtPrice objects.
     MemPool<MarketOrdersAtPrice> orders_at_price_pool_;
+
+    /// Pointers to beginning / best prices / top of book of buy and sell price levels.
     MarketOrdersAtPrice *bids_by_price_ = nullptr;
     MarketOrdersAtPrice *asks_by_price_ = nullptr;
 
+    /// Hash map from Price -> MarketOrdersAtPrice.
     OrdersAtPriceHashMap price_orders_at_price_;
 
+    /// Memory pool to manage MarketOrder objects.
     MemPool<MarketOrder> order_pool_;
 
     BBO bbo_;
@@ -92,10 +101,12 @@ namespace Trading {
       return (price % ME_MAX_PRICE_LEVELS);
     }
 
+    /// Fetch and return the MarketOrdersAtPrice corresponding to the provided price.
     auto getOrdersAtPrice(Price price) const noexcept -> MarketOrdersAtPrice * {
       return price_orders_at_price_.at(priceToIndex(price));
     }
 
+    /// Add a new MarketOrdersAtPrice at the correct price into the containers - the hash map and the doubly linked list of price levels.
     auto addOrdersAtPrice(MarketOrdersAtPrice *new_orders_at_price) noexcept {
       price_orders_at_price_.at(priceToIndex(new_orders_at_price->price_)) = new_orders_at_price;
 
@@ -144,6 +155,7 @@ namespace Trading {
       }
     }
 
+    /// Remove the MarketOrdersAtPrice from the containers - the hash map and the doubly linked list of price levels.
     auto removeOrdersAtPrice(Side side, Price price) noexcept {
       const auto best_orders_by_price = (side == Side::BUY ? bids_by_price_ : asks_by_price_);
       auto orders_at_price = getOrdersAtPrice(price);
@@ -166,6 +178,7 @@ namespace Trading {
       orders_at_price_pool_.deallocate(orders_at_price);
     }
 
+    /// Remove and de-allocate provided order from the containers.
     auto removeOrder(MarketOrder *order) noexcept -> void {
       auto orders_at_price = getOrdersAtPrice(order->price_);
 
@@ -188,6 +201,7 @@ namespace Trading {
       order_pool_.deallocate(order);
     }
 
+    /// Add a single order at the end of the FIFO queue at the price level that this order belongs in.
     auto addOrder(MarketOrder *order) noexcept -> void {
       const auto orders_at_price = getOrdersAtPrice(order->price_);
 
@@ -209,5 +223,6 @@ namespace Trading {
     }
   };
 
+  /// Hash map from TickerId -> MarketOrderBook.
   typedef std::array<MarketOrderBook *, ME_MAX_TICKERS> MarketOrderBookHashMap;
 }
