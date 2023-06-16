@@ -6,6 +6,7 @@
 using namespace Common;
 
 namespace Trading {
+  /// Sentinel value to represent invalid / uninitialized feature value.
   constexpr auto Feature_INVALID = std::numeric_limits<double>::quiet_NaN();
 
   class FeatureEngine {
@@ -14,6 +15,7 @@ namespace Trading {
         : logger_(logger) {
     }
 
+    /// Process a change in order book and in this case compute the fair market price.
     auto onOrderBookUpdate(TickerId ticker_id, Price price, Side side, MarketOrderBook* book) noexcept -> void {
       const auto bbo = book->getBBO();
       if(LIKELY(bbo->bid_price_ != Price_INVALID && bbo->ask_price_ != Price_INVALID)) {
@@ -25,6 +27,7 @@ namespace Trading {
                    Common::sideToString(side).c_str(), mkt_price_, agg_trade_qty_ratio_);
     }
 
+    /// Process a trade event and in this case compute the feature to capture aggressive trade quantity ratio against the BBO quantity.
     auto onTradeUpdate(const Exchange::MEMarketUpdate *market_update, MarketOrderBook* book) noexcept -> void {
       const auto bbo = book->getBBO();
       if(LIKELY(bbo->bid_price_ != Price_INVALID && bbo->ask_price_ != Price_INVALID)) {
@@ -44,7 +47,7 @@ namespace Trading {
       return agg_trade_qty_ratio_;
     }
 
-    // Deleted default, copy & move constructors and assignment-operators.
+    /// Deleted default, copy & move constructors and assignment-operators.
     FeatureEngine() = delete;
 
     FeatureEngine(const FeatureEngine &) = delete;
@@ -59,6 +62,7 @@ namespace Trading {
     std::string time_str_;
     Common::Logger *logger_ = nullptr;
 
+    /// The two features we compute in our feature engine.
     double mkt_price_ = Feature_INVALID, agg_trade_qty_ratio_ = Feature_INVALID;
   };
 }
