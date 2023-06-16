@@ -15,12 +15,14 @@ namespace Trading {
                    OrderManager *order_manager,
                    const TradeEngineCfgHashMap &ticker_cfg);
 
+    /// Process order book updates, which for the liquidity taking algorithm is none.
     auto onOrderBookUpdate(TickerId ticker_id, Price price, Side side, MarketOrderBook *) noexcept -> void {
       logger_->log("%:% %() % ticker:% price:% side:%\n", __FILE__, __LINE__, __FUNCTION__,
                    Common::getCurrentTimeStr(&time_str_), ticker_id, Common::priceToString(price).c_str(),
                    Common::sideToString(side).c_str());
     }
 
+    /// Process trade events, fetch the aggressive trade ratio from the feature engine, check against the trading threshold and send aggressive orders.
     auto onTradeUpdate(const Exchange::MEMarketUpdate *market_update, MarketOrderBook *book) noexcept -> void {
       logger_->log("%:% %() % %\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_),
                    market_update->toString().c_str());
@@ -47,6 +49,7 @@ namespace Trading {
       }
     }
 
+    /// Process client responses for the strategy's orders.
     auto onOrderUpdate(const Exchange::MEClientResponse *client_response) noexcept -> void {
       logger_->log("%:% %() % %\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_),
                    client_response->toString().c_str());
@@ -55,7 +58,7 @@ namespace Trading {
       END_MEASURE(Trading_OrderManager_onOrderUpdate, (*logger_));
     }
 
-    // Deleted default, copy & move constructors and assignment-operators.
+    /// Deleted default, copy & move constructors and assignment-operators.
     LiquidityTaker() = delete;
 
     LiquidityTaker(const LiquidityTaker &) = delete;
@@ -67,12 +70,16 @@ namespace Trading {
     LiquidityTaker &operator=(const LiquidityTaker &&) = delete;
 
   private:
+    /// The feature engine that drives the liquidity taking algorithm.
     const FeatureEngine *feature_engine_ = nullptr;
+
+    /// Used by the liquidity taking algorithm to send aggressive orders.
     OrderManager *order_manager_ = nullptr;
 
     std::string time_str_;
     Common::Logger *logger_ = nullptr;
 
+    /// Holds the trading configuration for the liquidity taking algorithm.
     const TradeEngineCfgHashMap ticker_cfg_;
   };
 }

@@ -34,6 +34,7 @@ namespace Trading {
 
     ~TradeEngine();
 
+    /// Start and stop the trade engine main thread.
     auto start() -> void {
       run_ = true;
       ASSERT(Common::createAndStartThread(-1, "Trading/TradeEngine", [this] { run(); }) != nullptr, "Failed to start TradeEngine thread.");
@@ -54,15 +55,22 @@ namespace Trading {
       run_ = false;
     }
 
+    /// Main loop for this thread - processes incoming client responses and market data updates which in turn may generate client requests.
     auto run() noexcept -> void;
 
+    /// Write a client request to the lock free queue for the order server to consume and send to the exchange.
     auto sendClientRequest(const Exchange::MEClientRequest *client_request) noexcept -> void;
 
+    /// Process changes to the order book - updates the position keeper, feature engine and informs the trading algorithm about the update.
     auto onOrderBookUpdate(TickerId ticker_id, Price price, Side side, MarketOrderBook *book) noexcept -> void;
+
+    /// Process trade events - updates the  feature engine and informs the trading algorithm about the trade event.
     auto onTradeUpdate(const Exchange::MEMarketUpdate *market_update, MarketOrderBook *book) noexcept -> void;
 
+    /// Process client responses - updates the position keeper and informs the trading algorithm about the response.
     auto onOrderUpdate(const Exchange::MEClientResponse *client_response) noexcept -> void;
 
+    /// Function wrappers to dispatch order book updates, trade events and client responses to the trading algorithm.
     std::function<void(TickerId ticker_id, Price price, Side side, MarketOrderBook *book)> algoOnOrderBookUpdate_;
     std::function<void(const Exchange::MEMarketUpdate *market_update, MarketOrderBook *book)> algoOnTradeUpdate_;
     std::function<void(const Exchange::MEClientResponse *client_response)> algoOnOrderUpdate_;
@@ -79,7 +87,7 @@ namespace Trading {
       return client_id_;
     }
 
-    // Deleted default, copy & move constructors and assignment-operators.
+    /// Deleted default, copy & move constructors and assignment-operators.
     TradeEngine() = delete;
 
     TradeEngine(const TradeEngine &) = delete;
@@ -91,10 +99,16 @@ namespace Trading {
     TradeEngine &operator=(const TradeEngine &&) = delete;
 
   private:
+    /// This trade engine's ClientId.
     const ClientId client_id_;
 
+    /// Hash map container from TickerId -> MarketOrderBook.
     MarketOrderBookHashMap ticker_order_book_;
 
+    /// Lock free queues.
+    /// One to publish outgoing client requests to be consumed by the order gateway and sent to the exchange.
+    /// Second to consume incoming client responses from, written to by the order gateway based on data received from the exchange.
+    /// Third to consume incoming market data updates from, written to by the market data consumer based on data received from the exchange.
     Exchange::ClientRequestLFQueue *outgoing_ogw_requests_ = nullptr;
     Exchange::ClientResponseLFQueue *incoming_ogw_responses_ = nullptr;
     Exchange::MEMarketUpdateLFQueue *incoming_md_updates_ = nullptr;
@@ -105,14 +119,23 @@ namespace Trading {
     std::string time_str_;
     Logger logger_;
 
+    /// Feature engine for the trading algorithms.
     FeatureEngine feature_engine_;
+
+    /// Position keeper to track position, pnl and volume.
     PositionKeeper position_keeper_;
+
+    /// Order manager to simplify the task of managing orders for the trading algorithms.
     OrderManager order_manager_;
+
+    /// Risk manager to track and perform pre-trade risk checks.
     RiskManager risk_manager_;
 
+    /// Market making or liquidity taking algorithm instance - only one of these is created in a single trade engine instance.
     MarketMaker *mm_algo_ = nullptr;
     LiquidityTaker *taker_algo_ = nullptr;
 
+    /// Default methods to initialize the function wrappers.
     auto defaultAlgoOnOrderBookUpdate(TickerId ticker_id, Price price, Side side, MarketOrderBook *) noexcept -> void {
       logger_.log("%:% %() % ticker:% price:% side:%\n", __FILE__, __LINE__, __FUNCTION__,
                   Common::getCurrentTimeStr(&time_str_), ticker_id, Common::priceToString(price).c_str(),
