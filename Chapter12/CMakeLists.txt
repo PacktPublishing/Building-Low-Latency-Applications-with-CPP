@@ -32,3 +32,6 @@ target_link_libraries(logger_benchmark PUBLIC ${LIBS})
 
 add_executable(release_benchmark benchmarks/release_benchmark.cpp)
 target_link_libraries(release_benchmark PUBLIC ${LIBS})
+
+add_executable(hash_benchmark benchmarks/hash_benchmark.cpp)
+target_link_libraries(hash_benchmark PUBLIC ${LIBS})
