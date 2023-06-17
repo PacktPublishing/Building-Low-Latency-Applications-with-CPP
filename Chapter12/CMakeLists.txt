@@ -29,3 +29,6 @@ target_link_libraries(trading_main PUBLIC ${LIBS})
 
 add_executable(logger_benchmark benchmarks/logger_benchmark.cpp)
 target_link_libraries(logger_benchmark PUBLIC ${LIBS})
+
+add_executable(release_benchmark benchmarks/release_benchmark.cpp)
+target_link_libraries(release_benchmark PUBLIC ${LIBS})
