@@ -35,14 +35,14 @@ int main(int, char **) {
   {
     Common::Logger logger("logger_benchmark_original.log");
     const auto cycles = benchmarkLogging(&logger);
-    std::cout << "Original Logger" << " " << cycles << " clock cycles." << std::endl;
+    std::cout << "ORIGINAL LOGGER " << cycles << " CLOCK CYCLES PER OPERATION." << std::endl;
     std::this_thread::sleep_for(10s);
   }
 
   {
     OptCommon::OptLogger opt_logger("logger_benchmark_optimized.log");
     const auto cycles = benchmarkLogging(&opt_logger);
-    std::cout << "Optimized Logger" << " " << cycles << " clock cycles." << std::endl;
+    std::cout << "OPTIMIZED LOGGER " << cycles << " CLOCK CYCLES PER OPERATION." << std::endl;
     std::this_thread::sleep_for(10s);
   }
 

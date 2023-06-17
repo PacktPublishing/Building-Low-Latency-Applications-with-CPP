@@ -30,13 +30,13 @@ int main(int, char **) {
   {
     Common::MemPool<Exchange::MDPMarketUpdate> mem_pool(512);
     const auto cycles = benchmarkMemPool(&mem_pool);
-    std::cout << "Original MemPool" << " " << cycles << " clock cycles." << std::endl;
+    std::cout << "ORIGINAL MEMPOOL " << cycles << " CLOCK CYCLES PER OPERATION." << std::endl;
   }
 
   {
     OptCommon::OptMemPool<Exchange::MDPMarketUpdate> opt_mem_pool(512);
     const auto cycles = benchmarkMemPool(&opt_mem_pool);
-    std::cout << "Optimized MemPool" << " " << cycles << " clock cycles." << std::endl;
+    std::cout << "OPTIMIZED MEMPOOL " << cycles << " CLOCK CYCLES PER OPERATION." << std::endl;
   }
 
   exit(EXIT_SUCCESS);

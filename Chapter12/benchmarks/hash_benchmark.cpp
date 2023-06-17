@@ -63,13 +63,13 @@ int main(int, char **) {
   {
     auto me_order_book = new Exchange::MEOrderBook(0, &logger, matching_engine);
     const auto cycles = benchmarkHashMap(me_order_book, client_requests_vec);
-    std::cout << "Array HashMap" << " " << cycles << " clock cycles." << std::endl;
+    std::cout << "ARRAY HASHMAP " << cycles << " CLOCK CYCLES PER OPERATION." << std::endl;
   }
 
   {
     auto me_order_book = new Exchange::UnorderedMapMEOrderBook(0, &logger, matching_engine);
     const auto cycles = benchmarkHashMap(me_order_book, client_requests_vec);
-    std::cout << "UnorderedMap HashMap" << " " << cycles << " clock cycles." << std::endl;
+    std::cout << "UNORDERED-MAP HASHMAP " << cycles << " CLOCK CYCLES PER OPERATION." << std::endl;
   }
 
   exit(EXIT_SUCCESS);
