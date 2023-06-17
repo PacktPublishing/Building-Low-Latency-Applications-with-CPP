@@ -154,7 +154,7 @@ namespace Exchange {
         orders_at_price->prev_entry_ = orders_at_price->next_entry_ = nullptr;
       }
 
-      price_orders_at_price_.at(priceToIndex(price)) = nullptr;
+      price_orders_at_price_[priceToIndex(price)] = nullptr;
 
       orders_at_price_pool_.deallocate(orders_at_price);
     }
@@ -195,7 +195,7 @@ namespace Exchange {
         order->prev_order_ = order->next_order_ = nullptr;
       }
 
-      cid_oid_to_order_.at(order->client_id_).at(order->client_order_id_) = nullptr;
+      cid_oid_to_order_[order->client_id_][order->client_order_id_] = nullptr;
       order_pool_.deallocate(order);
     }
 
