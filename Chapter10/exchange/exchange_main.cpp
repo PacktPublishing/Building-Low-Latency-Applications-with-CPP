@@ -4,11 +4,13 @@
 #include "market_data/market_data_publisher.h"
 #include "order_server/order_server.h"
 
+/// Main components, made global to be accessible from the signal handler.
 Common::Logger *logger = nullptr;
 Exchange::MatchingEngine *matching_engine = nullptr;
 Exchange::MarketDataPublisher *market_data_publisher = nullptr;
 Exchange::OrderServer *order_server = nullptr;
 
+/// Shut down gracefully on external signals to this server.
 void signal_handler(int) {
   using namespace std::literals::chrono_literals;
   std::this_thread::sleep_for(10s);
@@ -34,6 +36,7 @@ int main(int, char **) {
 
   const int sleep_time = 100 * 1000;
 
+  // The lock free queues to facilitate communication between order server <-> matching engine and matching engine -> market data publisher.
   Exchange::ClientRequestLFQueue client_requests(ME_MAX_CLIENT_UPDATES);
   Exchange::ClientResponseLFQueue client_responses(ME_MAX_CLIENT_UPDATES);
   Exchange::MEMarketUpdateLFQueue market_updates(ME_MAX_MARKET_UPDATES);

@@ -1,8 +1,10 @@
 #include "tcp_socket.h"
 
 namespace Common {
+  /// Create TCPSocket with provided attributes to either listen-on / connect-to.
   auto TCPSocket::connect(const std::string &ip, const std::string &iface, int port, bool is_listening) -> int {
     destroy();
+    // Note that needs_so_timestamp=true for FIFOSequencer.
     fd_ = createSocket(logger_, ip, iface, port, false, false, is_listening, 0, true);
 
     inInAddr.sin_addr.s_addr = INADDR_ANY;
@@ -17,6 +19,7 @@ namespace Common {
     fd_ = -1;
   }
 
+  /// Called to publish outgoing data from the buffers as well as check for and callback if data is available in the read buffers.
   auto TCPSocket::sendAndRecv() noexcept -> bool {
     char ctrl[CMSG_SPACE(sizeof(struct timeval))];
     struct cmsghdr *cmsg = (struct cmsghdr *) &ctrl;
@@ -33,6 +36,7 @@ namespace Common {
     msg.msg_iov = &iov;
     msg.msg_iovlen = 1;
 
+    // Non-blocking call to read available data.
     const auto n_rcv = recvmsg(fd_, &msg, MSG_DONTWAIT);
     if (n_rcv > 0) {
       next_rcv_valid_index_ += n_rcv;
@@ -43,7 +47,7 @@ namespace Common {
           cmsg->cmsg_type == SCM_TIMESTAMP &&
           cmsg->cmsg_len == CMSG_LEN(sizeof(time_kernel))) {
         memcpy(&time_kernel, CMSG_DATA(cmsg), sizeof(time_kernel));
-        kernel_time = time_kernel.tv_sec * NANOS_TO_SECS + time_kernel.tv_usec * NANOS_TO_MICROS;
+        kernel_time = time_kernel.tv_sec * NANOS_TO_SECS + time_kernel.tv_usec * NANOS_TO_MICROS; // convert timestamp to nanoseconds.
       }
 
       const auto user_time = getCurrentNanos();
@@ -57,6 +61,8 @@ namespace Common {
     while (n_send > 0) {
       auto n_send_this_msg = std::min(static_cast<ssize_t>(next_send_valid_index_), n_send);
       const int flags = MSG_DONTWAIT | MSG_NOSIGNAL | (n_send_this_msg < n_send ? MSG_MORE : 0);
+
+      // Non-blocking call to send data.
       auto n = ::send(fd_, send_buffer_, n_send_this_msg, flags);
       if (UNLIKELY(n < 0)) {
         if (!wouldBlock())
@@ -74,6 +80,7 @@ namespace Common {
     return (n_rcv > 0);
   }
 
+  /// Write outgoing data to the send buffers.
   auto TCPSocket::send(const void *data, size_t len) noexcept -> void {
     if (len > 0) {
       memcpy(send_buffer_ + next_send_valid_index_, data, len);
