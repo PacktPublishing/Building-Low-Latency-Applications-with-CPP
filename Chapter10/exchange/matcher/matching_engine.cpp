@@ -26,6 +26,7 @@ namespace Exchange {
     }
   }
 
+  /// Start and stop the matching engine main thread.
   auto MatchingEngine::start() -> void {
     run_ = true;
     ASSERT(Common::createAndStartThread(-1, "Exchange/MatchingEngine", [this]() { run(); }) != nullptr, "Failed to start MatchingEngine thread.");

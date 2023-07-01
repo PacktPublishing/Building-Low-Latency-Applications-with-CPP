@@ -19,6 +19,9 @@ namespace Exchange {
     }
   }
 
+  /// Match a new aggressive order with the provided parameters against a passive order held in the bid_itr object and generate client responses and market updates for the match.
+  /// It will update the passive order (bid_itr) based on the match and possibly remove it if fully matched.
+  /// It will return remaining quantity on the aggressive order in the leaves_qty parameter.
   auto MEOrderBook::match(TickerId ticker_id, ClientId client_id, Side side, OrderId client_order_id, OrderId new_market_order_id, MEOrder* itr, Qty* leaves_qty) noexcept {
     const auto order = itr;
     const auto order_qty = order->qty_;
@@ -51,6 +54,8 @@ namespace Exchange {
     }
   }
 
+  /// Check if a new order with the provided attributes would match against existing passive orders on the other side of the order book.
+  /// This will call the match() method to perform the match if there is a match to be made and return the quantity remaining if any on this new order.
   auto MEOrderBook::checkForMatch(ClientId client_id, OrderId client_order_id, TickerId ticker_id, Side side, Price price, Qty qty, Qty new_market_order_id) noexcept {
     auto leaves_qty = qty;
 
@@ -78,6 +83,8 @@ namespace Exchange {
     return leaves_qty;
   }
 
+  /// Create and add a new order in the order book with provided attributes.
+  /// It will check to see if this new order matches an existing passive order with opposite side, and perform the matching if that is the case.
   auto MEOrderBook::add(ClientId client_id, OrderId client_order_id, TickerId ticker_id, Side side, Price price, Qty qty) noexcept -> void {
     const auto new_market_order_id = generateNewMarketOrderId();
     client_response_ = {ClientResponseType::ACCEPTED, client_id, ticker_id, client_order_id, new_market_order_id, side, price, 0, qty};
@@ -97,6 +104,7 @@ namespace Exchange {
     }
   }
 
+  /// Attempt to cancel an order in the order book, issue a cancel-rejection if order does not exist.
   auto MEOrderBook::cancel(ClientId client_id, OrderId order_id, TickerId ticker_id) noexcept -> void {
     auto is_cancelable = (client_id < cid_oid_to_order_.size());
     MEOrder *exchange_order = nullptr;

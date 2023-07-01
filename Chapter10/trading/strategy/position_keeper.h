@@ -11,6 +11,7 @@
 using namespace Common;
 
 namespace Trading {
+  /// PositionInfo tracks the position, pnl (realized and unrealized) and volume for a single trading instrument.
   struct PositionInfo {
     int32_t position_ = 0;
     double real_pnl_ = 0, unreal_pnl_ = 0, total_pnl_ = 0;
@@ -34,6 +35,7 @@ namespace Trading {
       return ss.str();
     }
 
+    /// Process an execution and update the position, pnl and volume.
     auto addFill(const Exchange::MEClientResponse *client_response, Logger *logger) noexcept {
       const auto old_position = position_;
       const auto side_index = sideToIndex(client_response->side_);
@@ -76,6 +78,7 @@ namespace Trading {
                   toString(), client_response->toString().c_str());
     }
 
+    /// Process a change in top-of-book prices (BBO), and update unrealized pnl if there is an open position.
     auto updateBBO(const BBO *bbo, Logger *logger) noexcept {
       std::string time_str;
       bbo_ = bbo;
@@ -101,13 +104,14 @@ namespace Trading {
     }
   };
 
+  /// Top level position keeper class to compute position, pnl and volume for all trading instruments.
   class PositionKeeper {
   public:
     PositionKeeper(Common::Logger *logger)
         : logger_(logger) {
     }
 
-    // Deleted default, copy & move constructors and assignment-operators.
+    /// Deleted default, copy & move constructors and assignment-operators.
     PositionKeeper() = delete;
 
     PositionKeeper(const PositionKeeper &) = delete;
@@ -122,6 +126,7 @@ namespace Trading {
     std::string time_str_;
     Common::Logger *logger_ = nullptr;
 
+    /// Hash map container from TickerId -> PositionInfo.
     std::array<PositionInfo, ME_MAX_TICKERS> ticker_position_;
 
   public:

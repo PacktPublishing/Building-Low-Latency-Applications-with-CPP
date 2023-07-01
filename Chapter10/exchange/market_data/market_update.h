@@ -7,6 +7,7 @@
 using namespace Common;
 
 namespace Exchange {
+  /// Represents the type / action in the market update message.
   enum class MarketUpdateType : uint8_t {
     INVALID = 0,
     CLEAR = 1,
@@ -40,8 +41,10 @@ namespace Exchange {
     return "UNKNOWN";
   }
 
+  /// These structures go over the wire / network, so the binary structures are packed to remove system dependent extra padding.
 #pragma pack(push, 1)
 
+  /// Market update structure used internally by the matching engine.
   struct MEMarketUpdate {
     MarketUpdateType type_ = MarketUpdateType::INVALID;
 
@@ -68,6 +71,7 @@ namespace Exchange {
     }
   };
 
+  /// Market update structure published over the network by the market data publisher.
   struct MDPMarketUpdate {
     size_t seq_num_ = 0;
     MEMarketUpdate me_market_update_;
@@ -83,8 +87,9 @@ namespace Exchange {
     }
   };
 
-#pragma pack(pop)
+#pragma pack(pop) // Undo the packed binary structure directive moving forward.
 
+  /// Lock free queues of matching engine market update messages and market data publisher market updates messages respectively.
   typedef Common::LFQueue<Exchange::MEMarketUpdate> MEMarketUpdateLFQueue;
   typedef Common::LFQueue<Exchange::MDPMarketUpdate> MDPMarketUpdateLFQueue;
 }

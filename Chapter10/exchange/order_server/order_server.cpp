@@ -19,6 +19,7 @@ namespace Exchange {
     std::this_thread::sleep_for(1s);
   }
 
+  /// Start and stop the order server main thread.
   auto OrderServer::start() -> void {
     run_ = true;
     tcp_server_.listen(iface_, port_);

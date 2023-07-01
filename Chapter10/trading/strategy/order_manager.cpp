@@ -2,6 +2,7 @@
 #include "trade_engine.h"
 
 namespace Trading {
+  /// Send a new order with specified attribute, and update the OMOrder object passed here.
   auto OrderManager::newOrder(OMOrder *order, TickerId ticker_id, Price price, Side side, Qty qty) noexcept -> void {
     const Exchange::MEClientRequest new_request{Exchange::ClientRequestType::NEW, trade_engine_->clientId(), ticker_id,
                                                 next_order_id_, side, price, qty};
@@ -15,6 +16,7 @@ namespace Trading {
                  new_request.toString().c_str(), order->toString().c_str());
   }
 
+  /// Send a cancel for the specified order, and update the OMOrder object passed here.
   auto OrderManager::cancelOrder(OMOrder *order) noexcept -> void {
     const Exchange::MEClientRequest cancel_request{Exchange::ClientRequestType::CANCEL, trade_engine_->clientId(),
                                                    order->ticker_id_, order->order_id_, order->side_, order->price_,

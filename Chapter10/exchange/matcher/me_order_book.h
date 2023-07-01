@@ -19,13 +19,16 @@ namespace Exchange {
 
     ~MEOrderBook();
 
+    /// Create and add a new order in the order book with provided attributes.
+    /// It will check to see if this new order matches an existing passive order with opposite side, and perform the matching if that is the case.
     auto add(ClientId client_id, OrderId client_order_id, TickerId ticker_id, Side side, Price price, Qty qty) noexcept -> void;
 
+    /// Attempt to cancel an order in the order book, issue a cancel-rejection if order does not exist.
     auto cancel(ClientId client_id, OrderId order_id, TickerId ticker_id) noexcept -> void;
 
     auto toString(bool detailed, bool validity_check) const -> std::string;
 
-    // Deleted default, copy & move constructors and assignment-operators.
+    /// Deleted default, copy & move constructors and assignment-operators.
     MEOrderBook() = delete;
 
     MEOrderBook(const MEOrderBook &) = delete;
@@ -39,18 +42,26 @@ namespace Exchange {
   private:
     TickerId ticker_id_ = TickerId_INVALID;
 
+    /// The parent matching engine instance, used to publish market data and client responses.
     MatchingEngine *matching_engine_ = nullptr;
 
+    /// Hash map from ClientId -> OrderId -> MEOrder.
     ClientOrderHashMap cid_oid_to_order_;
 
+    /// Memory pool to manage MEOrdersAtPrice objects.
     MemPool<MEOrdersAtPrice> orders_at_price_pool_;
+
+    /// Pointers to beginning / best prices / top of book of buy and sell price levels.
     MEOrdersAtPrice *bids_by_price_ = nullptr;
     MEOrdersAtPrice *asks_by_price_ = nullptr;
 
+    /// Hash map from Price -> MEOrdersAtPrice.
     OrdersAtPriceHashMap price_orders_at_price_;
 
+    /// Memory pool to manage MEOrder objects.
     MemPool<MEOrder> order_pool_;
 
+    /// These are used to publish client responses and market updates.
     MEClientResponse client_response_;
     MEMarketUpdate market_update_;
 
@@ -68,10 +79,12 @@ namespace Exchange {
       return (price % ME_MAX_PRICE_LEVELS);
     }
 
+    /// Fetch and return the MEOrdersAtPrice corresponding to the provided price.
     auto getOrdersAtPrice(Price price) const noexcept -> MEOrdersAtPrice * {
       return price_orders_at_price_.at(priceToIndex(price));
     }
 
+    /// Add a new MEOrdersAtPrice at the correct price into the containers - the hash map and the doubly linked list of price levels.
     auto addOrdersAtPrice(MEOrdersAtPrice *new_orders_at_price) noexcept {
       price_orders_at_price_.at(priceToIndex(new_orders_at_price->price_)) = new_orders_at_price;
 
@@ -118,6 +131,7 @@ namespace Exchange {
       }
     }
 
+    /// Remove the MEOrdersAtPrice from the containers - the hash map and the doubly linked list of price levels.
     auto removeOrdersAtPrice(Side side, Price price) noexcept {
       const auto best_orders_by_price = (side == Side::BUY ? bids_by_price_ : asks_by_price_);
       auto orders_at_price = getOrdersAtPrice(price);
@@ -148,11 +162,16 @@ namespace Exchange {
       return orders_at_price->first_me_order_->prev_order_->priority_ + 1;
     }
 
+    /// Match a new aggressive order with the provided parameters against a passive order held in the bid_itr object and generate client responses and market updates for the match.
+    /// It will update the passive order (bid_itr) based on the match and possibly remove it if fully matched.
+    /// It will return remaining quantity on the aggressive order in the leaves_qty parameter.
     auto match(TickerId ticker_id, ClientId client_id, Side side, OrderId client_order_id, OrderId new_market_order_id, MEOrder* bid_itr, Qty* leaves_qty) noexcept;
 
-    auto
-    checkForMatch(ClientId client_id, OrderId client_order_id, TickerId ticker_id, Side side, Price price, Qty qty, Qty new_market_order_id) noexcept;
+    /// Check if a new order with the provided attributes would match against existing passive orders on the other side of the order book.
+    /// This will call the match() method to perform the match if there is a match to be made and return the quantity remaining if any on this new order.
+    auto checkForMatch(ClientId client_id, OrderId client_order_id, TickerId ticker_id, Side side, Price price, Qty qty, Qty new_market_order_id) noexcept;
 
+    /// Remove and de-allocate provided order from the containers.
     auto removeOrder(MEOrder *order) noexcept {
       auto orders_at_price = getOrdersAtPrice(order->price_);
 
@@ -175,6 +194,7 @@ namespace Exchange {
       order_pool_.deallocate(order);
     }
 
+    /// Add a single order at the end of the FIFO queue at the price level that this order belongs in.
     auto addOrder(MEOrder *order) noexcept {
       const auto orders_at_price = getOrdersAtPrice(order->price_);
 
@@ -196,5 +216,6 @@ namespace Exchange {
     }
   };
 
+  /// A hash map from TickerId -> MEOrderBook.
   typedef std::array<MEOrderBook *, ME_MAX_TICKERS> OrderBookHashMap;
 }

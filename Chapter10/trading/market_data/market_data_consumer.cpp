@@ -23,6 +23,7 @@ namespace Trading {
     snapshot_mcast_socket_.recv_callback_ = recv_callback;
   }
 
+  /// Main loop for this thread - reads and processes messages from the multicast sockets - the heavy lifting is in the recvCallback() and checkSnapshotSync() methods.
   auto MarketDataConsumer::run() noexcept -> void {
     logger_.log("%:% %() %\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_));
     while (run_) {
@@ -31,16 +32,18 @@ namespace Trading {
     }
   }
 
+  /// Start the process of snapshot synchronization by subscribing to the snapshot multicast stream.
   auto MarketDataConsumer::startSnapshotSync() -> void {
     snapshot_queued_msgs_.clear();
     incremental_queued_msgs_.clear();
 
     ASSERT(snapshot_mcast_socket_.init(snapshot_ip_, iface_, snapshot_port_, /*is_listening*/ true) >= 0,
            "Unable to create snapshot mcast socket. error:" + std::string(std::strerror(errno)));
-    ASSERT(snapshot_mcast_socket_.join(snapshot_ip_, iface_, snapshot_port_),
+    ASSERT(snapshot_mcast_socket_.join(snapshot_ip_, iface_, snapshot_port_), // IGMP multicast subscription.
            "Join failed on:" + std::to_string(snapshot_mcast_socket_.fd_) + " error:" + std::string(std::strerror(errno)));
   }
 
+  /// Check if a recovery / synchronization is possible from the queued up market data updates from the snapshot and incremental market data streams.
   auto MarketDataConsumer::checkSnapshotSync() -> void {
     if (snapshot_queued_msgs_.empty()) {
       return;
@@ -124,7 +127,7 @@ namespace Trading {
       return;
     }
 
-    for (auto &itr: final_events) {
+    for (const auto &itr: final_events) {
       auto next_write = incoming_md_updates_->getNextToWriteTo();
       *next_write = itr;
       incoming_md_updates_->updateWriteIndex();
@@ -140,8 +143,8 @@ namespace Trading {
     snapshot_mcast_socket_.leave(snapshot_ip_, snapshot_port_);;
   }
 
-  auto MarketDataConsumer::queueMessage(bool is_snapshot,
-                                        const Exchange::MDPMarketUpdate *request) {
+  /// Queue up a message in the *_queued_msgs_ containers, first parameter specifies if this update came from the snapshot or the incremental streams.
+  auto MarketDataConsumer::queueMessage(bool is_snapshot, const Exchange::MDPMarketUpdate *request) {
     if (is_snapshot) {
       if (snapshot_queued_msgs_.find(request->seq_num_) != snapshot_queued_msgs_.end()) {
         logger_.log("%:% %() % Packet drops on snapshot socket. Received for a 2nd time:%\n", __FILE__, __LINE__, __FUNCTION__,
@@ -159,9 +162,10 @@ namespace Trading {
     checkSnapshotSync();
   }
 
+  /// Process a market data update, the consumer needs to use the socket parameter to figure out whether this came from the snapshot or the incremental stream.
   auto MarketDataConsumer::recvCallback(McastSocket *socket) noexcept -> void {
     const auto is_snapshot = (socket->fd_ == snapshot_mcast_socket_.fd_);
-    if (UNLIKELY(is_snapshot && !in_recovery_)) {
+    if (UNLIKELY(is_snapshot && !in_recovery_)) { // market update was read from the snapshot market data stream and we are not in recovery, so we dont need it and discard it.
       socket->next_rcv_valid_index_ = 0;
 
       logger_.log("%:% %() % WARN Not expecting snapshot messages.\n",
@@ -182,14 +186,14 @@ namespace Trading {
         in_recovery_ = (already_in_recovery || request->seq_num_ != next_exp_inc_seq_num_);
 
         if (UNLIKELY(in_recovery_)) {
-          if (UNLIKELY(!already_in_recovery)) {
+          if (UNLIKELY(!already_in_recovery)) { // if we just entered recovery, start the snapshot synchonization process by subscribing to the snapshot multicast stream.
             logger_.log("%:% %() % Packet drops on % socket. SeqNum expected:% received:%\n", __FILE__, __LINE__, __FUNCTION__,
                         Common::getCurrentTimeStr(&time_str_), (is_snapshot ? "snapshot" : "incremental"), next_exp_inc_seq_num_, request->seq_num_);
             startSnapshotSync();
           }
 
-          queueMessage(is_snapshot, request);
-        } else if (!is_snapshot) {
+          queueMessage(is_snapshot, request); // queue up the market data update message and check if snapshot recovery / synchronization can be completed successfully.
+        } else if (!is_snapshot) { // not in recovery and received a packet in the correct order and without gaps, process it.
           logger_.log("%:% %() % %\n", __FILE__, __LINE__, __FUNCTION__,
                       Common::getCurrentTimeStr(&time_str_), request->toString());
 

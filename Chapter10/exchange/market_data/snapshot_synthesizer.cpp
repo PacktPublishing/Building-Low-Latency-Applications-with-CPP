@@ -12,6 +12,7 @@ namespace Exchange {
     stop();
   }
 
+  /// Start and stop the snapshot synthesizer thread.
   void SnapshotSynthesizer::start() {
     run_ = true;
     ASSERT(Common::createAndStartThread(-1, "Exchange/SnapshotSynthesizer", [this]() { run(); }) != nullptr,
@@ -22,6 +23,7 @@ namespace Exchange {
     run_ = false;
   }
 
+  /// Process an incremental market update and update the limit order book snapshot.
   auto SnapshotSynthesizer::addToSnapshot(const MDPMarketUpdate *market_update) {
     const auto &me_market_update = market_update->me_market_update_;
     auto *orders = &ticker_orders_.at(me_market_update.ticker_id_);
@@ -64,13 +66,16 @@ namespace Exchange {
     last_inc_seq_num_ = market_update->seq_num_;
   }
 
+  /// Publish a full snapshot cycle on the snapshot multicast stream.
   auto SnapshotSynthesizer::publishSnapshot() {
     size_t snapshot_size = 0;
 
+    // The snapshot cycle starts with a SNAPSHOT_START message and order_id_ contains the last sequence number from the incremental market data stream used to build this snapshot.
     const MDPMarketUpdate start_market_update{snapshot_size++, {MarketUpdateType::SNAPSHOT_START, last_inc_seq_num_}};
     logger_.log("%:% %() % %\n", __FILE__, __LINE__, __FUNCTION__, getCurrentTimeStr(&time_str_), start_market_update.toString());
     snapshot_socket_.send(&start_market_update, sizeof(MDPMarketUpdate));
 
+    // Publish order information for each order in the limit order book for each instrument.
     for (size_t ticker_id = 0; ticker_id < ticker_orders_.size(); ++ticker_id) {
       const auto &orders = ticker_orders_.at(ticker_id);
 
@@ -78,10 +83,12 @@ namespace Exchange {
       me_market_update.type_ = MarketUpdateType::CLEAR;
       me_market_update.ticker_id_ = ticker_id;
 
+      // We start order information for each instrument by first publishing a CLEAR message so the downstream consumer can clear the order book.
       const MDPMarketUpdate clear_market_update{snapshot_size++, me_market_update};
       logger_.log("%:% %() % %\n", __FILE__, __LINE__, __FUNCTION__, getCurrentTimeStr(&time_str_), clear_market_update.toString());
       snapshot_socket_.send(&clear_market_update, sizeof(MDPMarketUpdate));
 
+      // Publish each order.
       for (const auto order: orders) {
         if (order) {
           const MDPMarketUpdate market_update{snapshot_size++, *order};
@@ -92,6 +99,7 @@ namespace Exchange {
       }
     }
 
+    // The snapshot cycle ends with a SNAPSHOT_END message and order_id_ contains the last sequence number from the incremental market data stream used to build this snapshot.
     const MDPMarketUpdate end_market_update{snapshot_size++, {MarketUpdateType::SNAPSHOT_END, last_inc_seq_num_}};
     logger_.log("%:% %() % %\n", __FILE__, __LINE__, __FUNCTION__, getCurrentTimeStr(&time_str_), end_market_update.toString());
     snapshot_socket_.send(&end_market_update, sizeof(MDPMarketUpdate));
@@ -100,6 +108,7 @@ namespace Exchange {
     logger_.log("%:% %() % Published snapshot of % orders.\n", __FILE__, __LINE__, __FUNCTION__, getCurrentTimeStr(&time_str_), snapshot_size - 1);
   }
 
+  /// Main method for this thread - processes incremental updates from the market data publisher, updates the snapshot and publishes the snapshot periodically.
   void SnapshotSynthesizer::run() {
     logger_.log("%:% %() %\n", __FILE__, __LINE__, __FUNCTION__, getCurrentTimeStr(&time_str_));
     while (run_) {

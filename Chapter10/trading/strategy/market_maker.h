@@ -15,6 +15,7 @@ namespace Trading {
                 OrderManager *order_manager,
                 const TradeEngineCfgHashMap &ticker_cfg);
 
+    /// Process order book updates, fetch the fair market price from the feature engine, check against the trading threshold and modify the passive orders.
     auto onOrderBookUpdate(TickerId ticker_id, Price price, Side side, const MarketOrderBook *book) noexcept -> void {
       logger_->log("%:% %() % ticker:% price:% side:%\n", __FILE__, __LINE__, __FUNCTION__,
                    Common::getCurrentTimeStr(&time_str_), ticker_id, Common::priceToString(price).c_str(),
@@ -38,18 +39,21 @@ namespace Trading {
       }
     }
 
+    /// Process trade events, which for the market making algorithm is none.
     auto onTradeUpdate(const Exchange::MEMarketUpdate *market_update, MarketOrderBook * /* book */) noexcept -> void {
       logger_->log("%:% %() % %\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_),
                    market_update->toString().c_str());
     }
 
+    /// Process client responses for the strategy's orders.
     auto onOrderUpdate(const Exchange::MEClientResponse *client_response) noexcept -> void {
       logger_->log("%:% %() % %\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_),
                    client_response->toString().c_str());
+
       order_manager_->onOrderUpdate(client_response);
     }
 
-    // Deleted default, copy & move constructors and assignment-operators.
+    /// Deleted default, copy & move constructors and assignment-operators.
     MarketMaker() = delete;
 
     MarketMaker(const MarketMaker &) = delete;
@@ -61,12 +65,16 @@ namespace Trading {
     MarketMaker &operator=(const MarketMaker &&) = delete;
 
   private:
+    /// The feature engine that drives the market making algorithm.
     const FeatureEngine *feature_engine_ = nullptr;
+
+    /// Used by the market making algorithm to manage its passive orders.
     OrderManager *order_manager_ = nullptr;
 
     std::string time_str_;
     Common::Logger *logger_ = nullptr;
 
+    /// Holds the trading configuration for the market making algorithm.
     const TradeEngineCfgHashMap ticker_cfg_;
   };
 }

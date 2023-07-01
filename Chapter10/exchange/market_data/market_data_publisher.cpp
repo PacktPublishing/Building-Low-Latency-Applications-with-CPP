@@ -11,18 +11,22 @@ namespace Exchange {
     snapshot_synthesizer_ = new SnapshotSynthesizer(&snapshot_md_updates_, iface, snapshot_ip, snapshot_port);
   }
 
+  /// Main run loop for this thread - consumes market updates from the lock free queue from the matching engine, publishes them on the incremental multicast stream and forwards them to the snapshot synthesizer.
   auto MarketDataPublisher::run() noexcept -> void {
     logger_.log("%:% %() %\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_));
     while (run_) {
       for (auto market_update = outgoing_md_updates_->getNextToRead();
            outgoing_md_updates_->size() && market_update; market_update = outgoing_md_updates_->getNextToRead()) {
+
         logger_.log("%:% %() % Sending seq:% %\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_), next_inc_seq_num_,
                     market_update->toString().c_str());
 
         incremental_socket_.send(&next_inc_seq_num_, sizeof(next_inc_seq_num_));
         incremental_socket_.send(market_update, sizeof(MEMarketUpdate));
+
         outgoing_md_updates_->updateReadIndex();
 
+        // Forward this incremental market data update the snapshot synthesizer.
         auto next_write = snapshot_md_updates_.getNextToWriteTo();
         next_write->seq_num_ = next_inc_seq_num_;
         next_write->me_market_update_ = *market_update;
@@ -31,6 +35,7 @@ namespace Exchange {
         ++next_inc_seq_num_;
       }
 
+      // Publish to the multicast stream.
       incremental_socket_.sendAndRecv();
     }
   }

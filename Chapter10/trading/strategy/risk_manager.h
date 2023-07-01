@@ -11,6 +11,7 @@ using namespace Common;
 namespace Trading {
   class OrderManager;
 
+  /// Enumeration that captures the result of a risk check - ALLOWED means it passed all risk checks, the other values represent the failure reason.
   enum class RiskCheckResult : int8_t {
     INVALID = 0,
     ORDER_TOO_LARGE = 1,
@@ -36,11 +37,14 @@ namespace Trading {
     return "";
   }
 
+  /// Structure that represents the information needed for risk checks for a single trading instrument.
   struct RiskInfo {
     const PositionInfo *position_info_ = nullptr;
 
     RiskCfg risk_cfg_;
 
+    /// Check risk to see if we are allowed to send an order of the specified quantity on the specified side.
+    /// Will return a RiskCheckResult value to convey the output of the risk check.
     auto checkPreTradeRisk(Side side, Qty qty) const noexcept {
       // check order-size
       if (UNLIKELY(qty > risk_cfg_.max_order_size_))
@@ -64,8 +68,10 @@ namespace Trading {
     }
   };
 
+  /// Hash map from TickerId -> RiskInfo.
   typedef std::array<RiskInfo, ME_MAX_TICKERS> TickerRiskInfoHashMap;
 
+  /// Top level risk manager class to compute and check risk across all trading instruments.
   class RiskManager {
   public:
     RiskManager(Common::Logger *logger, const PositionKeeper *position_keeper, const TradeEngineCfgHashMap &ticker_cfg);
@@ -74,7 +80,7 @@ namespace Trading {
       return ticker_risk_.at(ticker_id).checkPreTradeRisk(side, qty);
     }
 
-    // Deleted default, copy & move constructors and assignment-operators.
+    /// Deleted default, copy & move constructors and assignment-operators.
     RiskManager() = delete;
 
     RiskManager(const RiskManager &) = delete;
@@ -89,6 +95,7 @@ namespace Trading {
     std::string time_str_;
     Common::Logger *logger_ = nullptr;
 
+    /// Hash map container from TickerId -> RiskInfo.
     TickerRiskInfoHashMap ticker_risk_;
   };
 }

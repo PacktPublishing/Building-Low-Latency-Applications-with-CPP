@@ -18,12 +18,15 @@ namespace Trading {
       ticker_order_book_[i]->setTradeEngine(this);
     }
 
+    // Initialize the function wrappers for the callbacks for order book changes, trade events and client responses.
     algoOnOrderBookUpdate_ = [this](auto ticker_id, auto price, auto side, auto book) {
       defaultAlgoOnOrderBookUpdate(ticker_id, price, side, book);
     };
     algoOnTradeUpdate_ = [this](auto market_update, auto book) { defaultAlgoOnTradeUpdate(market_update, book); };
     algoOnOrderUpdate_ = [this](auto client_response) { defaultAlgoOnOrderUpdate(client_response); };
 
+    // Create the trading algorithm instance based on the AlgoType provided.
+    // The constructor will override the callbacks above for order book changes, trade events and client responses.
     if (algo_type == AlgoType::MAKER) {
       mm_algo_ = new MarketMaker(&logger_, this, &feature_engine_, &order_manager_, ticker_cfg);
     } else if (algo_type == AlgoType::TAKER) {
@@ -57,6 +60,7 @@ namespace Trading {
     incoming_md_updates_ = nullptr;
   }
 
+  /// Write a client request to the lock free queue for the order server to consume and send to the exchange.
   auto TradeEngine::sendClientRequest(const Exchange::MEClientRequest *client_request) noexcept -> void {
     logger_.log("%:% %() % Sending %\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_),
                 client_request->toString().c_str());
@@ -65,6 +69,7 @@ namespace Trading {
     outgoing_ogw_requests_->updateWriteIndex();
   }
 
+  /// Main loop for this thread - processes incoming client responses and market data updates which in turn may generate client requests.
   auto TradeEngine::run() noexcept -> void {
     logger_.log("%:% %() %\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_));
     while (run_) {
@@ -88,18 +93,22 @@ namespace Trading {
     }
   }
 
+  /// Process changes to the order book - updates the position keeper, feature engine and informs the trading algorithm about the update.
   auto TradeEngine::onOrderBookUpdate(TickerId ticker_id, Price price, Side side, MarketOrderBook *book) noexcept -> void {
     logger_.log("%:% %() % ticker:% price:% side:%\n", __FILE__, __LINE__, __FUNCTION__,
                 Common::getCurrentTimeStr(&time_str_), ticker_id, Common::priceToString(price).c_str(),
                 Common::sideToString(side).c_str());
 
-    position_keeper_.updateBBO(ticker_id, book->getBBO());
+    auto bbo = book->getBBO();
+
+    position_keeper_.updateBBO(ticker_id, bbo);
 
     feature_engine_.onOrderBookUpdate(ticker_id, price, side, book);
 
     algoOnOrderBookUpdate_(ticker_id, price, side, book);
   }
 
+  /// Process trade events - updates the  feature engine and informs the trading algorithm about the trade event.
   auto TradeEngine::onTradeUpdate(const Exchange::MEMarketUpdate *market_update, MarketOrderBook *book) noexcept -> void {
     logger_.log("%:% %() % %\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_),
                 market_update->toString().c_str());
@@ -109,12 +118,14 @@ namespace Trading {
     algoOnTradeUpdate_(market_update, book);
   }
 
+  /// Process client responses - updates the position keeper and informs the trading algorithm about the response.
   auto TradeEngine::onOrderUpdate(const Exchange::MEClientResponse *client_response) noexcept -> void {
     logger_.log("%:% %() % %\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_),
                 client_response->toString().c_str());
 
-    if (UNLIKELY(client_response->type_ == Exchange::ClientResponseType::FILLED))
+    if (UNLIKELY(client_response->type_ == Exchange::ClientResponseType::FILLED)) {
       position_keeper_.addFill(client_response);
+    }
 
     algoOnOrderUpdate_(client_response);
   }
