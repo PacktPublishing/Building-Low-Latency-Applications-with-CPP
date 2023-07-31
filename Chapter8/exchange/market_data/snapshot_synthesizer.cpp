@@ -6,6 +6,8 @@ namespace Exchange {
       : snapshot_md_updates_(market_updates), logger_("exchange_snapshot_synthesizer.log"), snapshot_socket_(logger_), order_pool_(ME_MAX_ORDER_IDS) {
     ASSERT(snapshot_socket_.init(snapshot_ip, iface, snapshot_port, /*is_listening*/ false) >= 0,
            "Unable to create snapshot mcast socket. error:" + std::string(std::strerror(errno)));
+    for(auto& orders : ticker_orders_)
+      orders.fill(nullptr);
   }
 
   SnapshotSynthesizer::~SnapshotSynthesizer() {
