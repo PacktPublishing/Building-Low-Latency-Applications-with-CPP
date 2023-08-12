@@ -16,27 +16,18 @@ namespace Common {
   /// Called to publish outgoing data from the buffers as well as check for and callback if data is available in the read buffers.
   auto TCPSocket::sendAndRecv() noexcept -> bool {
     char ctrl[CMSG_SPACE(sizeof(struct timeval))];
-    struct cmsghdr *cmsg = (struct cmsghdr *) &ctrl;
+    auto cmsg = reinterpret_cast<struct cmsghdr *>(&ctrl);
 
-    struct iovec iov;
-    iov.iov_base = inbound_data_.data() + next_rcv_valid_index_;
-    iov.iov_len = TCPBufferSize - next_rcv_valid_index_;
-
-    msghdr msg;
-    msg.msg_control = ctrl;
-    msg.msg_controllen = sizeof(ctrl);
-    msg.msg_name = &socket_attrib_;
-    msg.msg_namelen = sizeof(socket_attrib_);
-    msg.msg_iov = &iov;
-    msg.msg_iovlen = 1;
+    iovec iov{inbound_data_.data() + next_rcv_valid_index_, TCPBufferSize - next_rcv_valid_index_};
+    msghdr msg{&socket_attrib_, sizeof(socket_attrib_), &iov, 1, ctrl, sizeof(ctrl), 0};
 
     // Non-blocking call to read available data.
-    const auto n_rcv = recvmsg(socket_fd_, &msg, MSG_DONTWAIT);
-    if (n_rcv > 0) {
-      next_rcv_valid_index_ += n_rcv;
+    const auto read_size = recvmsg(socket_fd_, &msg, MSG_DONTWAIT);
+    if (read_size > 0) {
+      next_rcv_valid_index_ += read_size;
 
       Nanos kernel_time = 0;
-      struct timeval time_kernel;
+      timeval time_kernel;
       if (cmsg->cmsg_level == SOL_SOCKET &&
           cmsg->cmsg_type == SCM_TIMESTAMP &&
           cmsg->cmsg_len == CMSG_LEN(sizeof(time_kernel))) {
@@ -51,25 +42,14 @@ namespace Common {
       recv_callback_(this, kernel_time);
     }
 
-    ssize_t n_send = std::min(TCPBufferSize, next_send_valid_index_);
-    while (n_send > 0) {
-      auto n_send_this_msg = std::min(static_cast<ssize_t>(next_send_valid_index_), n_send);
-      const int flags = MSG_DONTWAIT | MSG_NOSIGNAL | (n_send_this_msg < n_send ? MSG_MORE : 0);
-
+    if (next_send_valid_index_ > 0) {
       // Non-blocking call to send data.
-      auto n = ::send(socket_fd_, outbound_data_.data(), n_send_this_msg, flags);
-      if (UNLIKELY(n < 0)) {
-        break;
-      }
-
+      const auto n = ::send(socket_fd_, outbound_data_.data(), next_send_valid_index_, MSG_DONTWAIT | MSG_NOSIGNAL);
       logger_.log("%:% %() % send socket:% len:%\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_), socket_fd_, n);
-
-      n_send -= n;
-      ASSERT(n == n_send_this_msg, "Don't support partial send lengths yet.");
     }
     next_send_valid_index_ = 0;
 
-    return (n_rcv > 0);
+    return (read_size > 0);
   }
 
   /// Write outgoing data to the send buffers.
