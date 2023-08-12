@@ -56,12 +56,12 @@ namespace Exchange {
     auto recvCallback(TCPSocket *socket, Nanos rx_time) noexcept {
       TTT_MEASURE(T1_OrderServer_TCP_read, logger_);
       logger_.log("%:% %() % Received socket:% len:% rx:%\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_),
-                  socket->fd_, socket->next_rcv_valid_index_, rx_time);
+                  socket->socket_fd_, socket->next_rcv_valid_index_, rx_time);
 
       if (socket->next_rcv_valid_index_ >= sizeof(OMClientRequest)) {
         size_t i = 0;
         for (; i + sizeof(OMClientRequest) <= socket->next_rcv_valid_index_; i += sizeof(OMClientRequest)) {
-          auto request = reinterpret_cast<const OMClientRequest *>(socket->rcv_buffer_ + i);
+          auto request = reinterpret_cast<const OMClientRequest *>(socket->inbound_data_.data() + i);
           logger_.log("%:% %() % Received %\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_), request->toString());
 
           if (UNLIKELY(cid_tcp_socket_[request->me_client_request_.client_id_] == nullptr)) { // first message from this ClientId.
@@ -70,8 +70,8 @@ namespace Exchange {
 
           if (cid_tcp_socket_[request->me_client_request_.client_id_] != socket) { // TODO - change this to send a reject back to the client.
             logger_.log("%:% %() % Received ClientRequest from ClientId:% on different socket:% expected:%\n", __FILE__, __LINE__, __FUNCTION__,
-                        Common::getCurrentTimeStr(&time_str_), request->me_client_request_.client_id_, socket->fd_,
-                        cid_tcp_socket_[request->me_client_request_.client_id_]->fd_);
+                        Common::getCurrentTimeStr(&time_str_), request->me_client_request_.client_id_, socket->socket_fd_,
+                        cid_tcp_socket_[request->me_client_request_.client_id_]->socket_fd_);
             continue;
           }
 
@@ -88,7 +88,7 @@ namespace Exchange {
           fifo_sequencer_.addClientRequest(rx_time, request->me_client_request_);
           END_MEASURE(Exchange_FIFOSequencer_addClientRequest, logger_);
         }
-        memcpy(socket->rcv_buffer_, socket->rcv_buffer_ + i, socket->next_rcv_valid_index_ - i);
+        memcpy(socket->inbound_data_.data(), socket->inbound_data_.data() + i, socket->next_rcv_valid_index_ - i);
         socket->next_rcv_valid_index_ -= i;
       }
     }

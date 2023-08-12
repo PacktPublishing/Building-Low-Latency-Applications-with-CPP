@@ -3,20 +3,14 @@
 namespace Common {
   /// Create TCPSocket with provided attributes to either listen-on / connect-to.
   auto TCPSocket::connect(const std::string &ip, const std::string &iface, int port, bool is_listening) -> int {
-    destroy();
     // Note that needs_so_timestamp=true for FIFOSequencer.
-    fd_ = createSocket(logger_, ip, iface, port, false, false, is_listening, 0, true);
+    socket_fd_ = createSocket(logger_, ip, iface, port, false, false, is_listening, 0, true);
 
-    inInAddr.sin_addr.s_addr = INADDR_ANY;
-    inInAddr.sin_port = htons(port);
-    inInAddr.sin_family = AF_INET;
+    socket_attrib_.sin_addr.s_addr = INADDR_ANY;
+    socket_attrib_.sin_port = htons(port);
+    socket_attrib_.sin_family = AF_INET;
 
-    return fd_;
-  }
-
-  auto TCPSocket::destroy() -> void {
-    close(fd_);
-    fd_ = -1;
+    return socket_fd_;
   }
 
   /// Called to publish outgoing data from the buffers as well as check for and callback if data is available in the read buffers.
@@ -25,19 +19,19 @@ namespace Common {
     struct cmsghdr *cmsg = (struct cmsghdr *) &ctrl;
 
     struct iovec iov;
-    iov.iov_base = rcv_buffer_ + next_rcv_valid_index_;
+    iov.iov_base = inbound_data_.data() + next_rcv_valid_index_;
     iov.iov_len = TCPBufferSize - next_rcv_valid_index_;
 
     msghdr msg;
     msg.msg_control = ctrl;
     msg.msg_controllen = sizeof(ctrl);
-    msg.msg_name = &inInAddr;
-    msg.msg_namelen = sizeof(inInAddr);
+    msg.msg_name = &socket_attrib_;
+    msg.msg_namelen = sizeof(socket_attrib_);
     msg.msg_iov = &iov;
     msg.msg_iovlen = 1;
 
     // Non-blocking call to read available data.
-    const auto n_rcv = recvmsg(fd_, &msg, MSG_DONTWAIT);
+    const auto n_rcv = recvmsg(socket_fd_, &msg, MSG_DONTWAIT);
     if (n_rcv > 0) {
       next_rcv_valid_index_ += n_rcv;
 
@@ -53,7 +47,7 @@ namespace Common {
       const auto user_time = getCurrentNanos();
 
       logger_.log("%:% %() % read socket:% len:% utime:% ktime:% diff:%\n", __FILE__, __LINE__, __FUNCTION__,
-                  Common::getCurrentTimeStr(&time_str_), fd_, next_rcv_valid_index_, user_time, kernel_time, (user_time - kernel_time));
+                  Common::getCurrentTimeStr(&time_str_), socket_fd_, next_rcv_valid_index_, user_time, kernel_time, (user_time - kernel_time));
       recv_callback_(this, kernel_time);
     }
 
@@ -63,14 +57,12 @@ namespace Common {
       const int flags = MSG_DONTWAIT | MSG_NOSIGNAL | (n_send_this_msg < n_send ? MSG_MORE : 0);
 
       // Non-blocking call to send data.
-      auto n = ::send(fd_, send_buffer_, n_send_this_msg, flags);
+      auto n = ::send(socket_fd_, outbound_data_.data(), n_send_this_msg, flags);
       if (UNLIKELY(n < 0)) {
-        if (!wouldBlock())
-          send_disconnected_ = true;
         break;
       }
 
-      logger_.log("%:% %() % send socket:% len:%\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_), fd_, n);
+      logger_.log("%:% %() % send socket:% len:%\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_), socket_fd_, n);
 
       n_send -= n;
       ASSERT(n == n_send_this_msg, "Don't support partial send lengths yet.");
@@ -82,9 +74,7 @@ namespace Common {
 
   /// Write outgoing data to the send buffers.
   auto TCPSocket::send(const void *data, size_t len) noexcept -> void {
-    if (len > 0) {
-      memcpy(send_buffer_ + next_send_valid_index_, data, len);
-      next_send_valid_index_ += len;
-    }
+    memcpy(outbound_data_.data() + next_send_valid_index_, data, len);
+    next_send_valid_index_ += len;
   }
 }

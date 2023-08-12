@@ -4,19 +4,8 @@
 
 namespace Common {
   struct TCPServer {
-    /// Methods to initialize member function wrappers.
-    auto defaultRecvCallback(TCPSocket *socket, Nanos rx_time) noexcept {
-      logger_.log("%:% %() % TCPServer::defaultRecvCallback() socket:% len:% rx:%\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_), socket->fd_, socket->next_rcv_valid_index_, rx_time);
-    }
-
-    auto defaultRecvFinishedCallback() noexcept {
-      logger_.log("%:% %() % TCPServer::defaultRecvFinishedCallback()\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_));
-    }
-
     explicit TCPServer(Logger &logger)
         : listener_socket_(logger), logger_(logger) {
-      recv_callback_ = [this](auto socket, auto rx_time) { defaultRecvCallback(socket, rx_time); };
-      recv_finished_callback_ = [this]() { defaultRecvFinishedCallback(); };
     }
 
     /// Start listening for connections on the provided interface and port.

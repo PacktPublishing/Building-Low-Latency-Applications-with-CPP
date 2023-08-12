@@ -1,27 +1,20 @@
 #include "tcp_server.h"
 
 namespace Common {
-  auto TCPServer::destroy() {
-    close(efd_);
-    efd_ = -1;
-    listener_socket_.destroy();
-  }
-
   /// Add and remove socket file descriptors to and from the EPOLL list.
   auto TCPServer::epoll_add(TCPSocket *socket) {
     epoll_event ev{};
     ev.events = EPOLLET | EPOLLIN;
     ev.data.ptr = reinterpret_cast<void *>(socket);
-    return (epoll_ctl(efd_, EPOLL_CTL_ADD, socket->fd_, &ev) != -1);
+    return (epoll_ctl(efd_, EPOLL_CTL_ADD, socket->socket_fd_, &ev) != -1);
   }
 
   auto TCPServer::epoll_del(TCPSocket *socket) {
-    return (epoll_ctl(efd_, EPOLL_CTL_DEL, socket->fd_, nullptr) != -1);
+    return (epoll_ctl(efd_, EPOLL_CTL_DEL, socket->socket_fd_, nullptr) != -1);
   }
 
   /// Start listening for connections on the provided interface and port.
   auto TCPServer::listen(const std::string &iface, int port) -> void {
-    destroy();
     efd_ = epoll_create(1);
     ASSERT(efd_ >= 0, "epoll_create() failed error:" + std::string(std::strerror(errno)));
 
@@ -73,23 +66,23 @@ namespace Common {
       // Check for new connections.
       if (event.events & EPOLLIN) {
         if (socket == &listener_socket_) {
-          logger_.log("%:% %() % EPOLLIN listener_socket:%\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_), socket->fd_);
+          logger_.log("%:% %() % EPOLLIN listener_socket:%\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_), socket->socket_fd_);
           have_new_connection = true;
           continue;
         }
-        logger_.log("%:% %() % EPOLLIN socket:%\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_), socket->fd_);
+        logger_.log("%:% %() % EPOLLIN socket:%\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_), socket->socket_fd_);
         if(std::find(receive_sockets_.begin(), receive_sockets_.end(), socket) == receive_sockets_.end())
           receive_sockets_.push_back(socket);
       }
 
       if (event.events & EPOLLOUT) {
-        logger_.log("%:% %() % EPOLLOUT socket:%\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_), socket->fd_);
+        logger_.log("%:% %() % EPOLLOUT socket:%\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_), socket->socket_fd_);
         if(std::find(send_sockets_.begin(), send_sockets_.end(), socket) == send_sockets_.end())
           send_sockets_.push_back(socket);
       }
 
       if (event.events & (EPOLLERR | EPOLLHUP)) {
-        logger_.log("%:% %() % EPOLLERR socket:%\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_), socket->fd_);
+        logger_.log("%:% %() % EPOLLERR socket:%\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_), socket->socket_fd_);
         if(std::find(receive_sockets_.begin(), receive_sockets_.end(), socket) == receive_sockets_.end())
           receive_sockets_.push_back(socket);
       }
@@ -100,7 +93,7 @@ namespace Common {
       logger_.log("%:% %() % have_new_connection\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_));
       sockaddr_storage addr;
       socklen_t addr_len = sizeof(addr);
-      int fd = accept(listener_socket_.fd_, reinterpret_cast<sockaddr *>(&addr), &addr_len);
+      int fd = accept(listener_socket_.socket_fd_, reinterpret_cast<sockaddr *>(&addr), &addr_len);
       if (fd == -1)
         break;
 
@@ -108,8 +101,8 @@ namespace Common {
 
       logger_.log("%:% %() % accepted socket:%\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_), fd);
 
-      TCPSocket *socket = new TCPSocket(logger_);
-      socket->fd_ = fd;
+      auto socket = new TCPSocket(logger_);
+      socket->socket_fd_ = fd;
       socket->recv_callback_ = recv_callback_;
       ASSERT(epoll_add(socket), "Unable to add socket. error:" + std::string(std::strerror(errno)));
 
