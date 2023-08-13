@@ -38,12 +38,12 @@ namespace Trading {
     TTT_MEASURE(T7t_OrderGateway_TCP_read, logger_);
 
     START_MEASURE(Trading_OrderGateway_recvCallback);
-    logger_.log("%:% %() % Received socket:% len:% %\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_), socket->fd_, socket->next_rcv_valid_index_, rx_time);
+    logger_.log("%:% %() % Received socket:% len:% %\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_), socket->socket_fd_, socket->next_rcv_valid_index_, rx_time);
 
     if (socket->next_rcv_valid_index_ >= sizeof(Exchange::OMClientResponse)) {
       size_t i = 0;
       for (; i + sizeof(Exchange::OMClientResponse) <= socket->next_rcv_valid_index_; i += sizeof(Exchange::OMClientResponse)) {
-        auto response = reinterpret_cast<const Exchange::OMClientResponse *>(socket->rcv_buffer_ + i);
+        auto response = reinterpret_cast<const Exchange::OMClientResponse *>(socket->inbound_data_.data() + i);
         logger_.log("%:% %() % Received %\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_), response->toString());
 
         if(response->me_client_response_.client_id_ != client_id_) { // this should never happen unless there is a bug at the exchange.
@@ -64,7 +64,7 @@ namespace Trading {
         incoming_responses_->updateWriteIndex();
         TTT_MEASURE(T8t_OrderGateway_LFQueue_write, logger_);
       }
-      memcpy(socket->rcv_buffer_, socket->rcv_buffer_ + i, socket->next_rcv_valid_index_ - i);
+      memcpy(socket->inbound_data_.data(), socket->inbound_data_.data() + i, socket->next_rcv_valid_index_ - i);
       socket->next_rcv_valid_index_ -= i;
     }
     END_MEASURE(Trading_OrderGateway_recvCallback, logger_);

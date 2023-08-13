@@ -10,27 +10,10 @@ namespace Common {
   constexpr size_t TCPBufferSize = 64 * 1024 * 1024;
 
   struct TCPSocket {
-    /// Default callback to be used to receive and process data.
-    auto defaultRecvCallback(TCPSocket *socket, Nanos rx_time) noexcept {
-      logger_.log("%:% %() % TCPSocket::defaultRecvCallback() socket:% len:% rx:%\n", __FILE__, __LINE__, __FUNCTION__,
-                  Common::getCurrentTimeStr(&time_str_), socket->fd_, socket->next_rcv_valid_index_, rx_time);
-    }
-
     explicit TCPSocket(Logger &logger)
         : logger_(logger) {
-      send_buffer_ = new char[TCPBufferSize];
-      rcv_buffer_ = new char[TCPBufferSize];
-      recv_callback_ = [this](auto socket, auto rx_time) { defaultRecvCallback(socket, rx_time); };
-    }
-
-    auto destroy() -> void;
-
-    ~TCPSocket() {
-      destroy();
-      delete[] send_buffer_;
-      send_buffer_ = nullptr;
-      delete[] rcv_buffer_;
-      rcv_buffer_ = nullptr;
+      outbound_data_.resize(TCPBufferSize);
+      inbound_data_.resize(TCPBufferSize);
     }
 
     /// Create TCPSocket with provided attributes to either listen-on / connect-to.
@@ -53,23 +36,20 @@ namespace Common {
 
     TCPSocket &operator=(const TCPSocket &&) = delete;
 
-    int fd_ = -1;
+    /// File descriptor for the socket.
+    int socket_fd_ = -1;
 
     /// Send and receive buffers and trackers for read/write indices.
-    char *send_buffer_ = nullptr;
+    std::vector<char> outbound_data_;
     size_t next_send_valid_index_ = 0;
-    char *rcv_buffer_ = nullptr;
+    std::vector<char> inbound_data_;
     size_t next_rcv_valid_index_ = 0;
 
-    /// To track the state of outgoing or incoming connections.
-    bool send_disconnected_ = false;
-    bool recv_disconnected_ = false;
-
     /// Socket attributes.
-    struct sockaddr_in inInAddr;
+    struct sockaddr_in socket_attrib_{};
 
     /// Function wrapper to callback when there is data to be processed.
-    std::function<void(TCPSocket *s, Nanos rx_time)> recv_callback_;
+    std::function<void(TCPSocket *s, Nanos rx_time)> recv_callback_ = nullptr;
 
     std::string time_str_;
     Logger &logger_;
