@@ -4,7 +4,7 @@ namespace Common {
   /// Initialize multicast socket to read from or publish to a stream.
   /// Does not join the multicast stream yet.
   auto McastSocket::init(const std::string &ip, const std::string &iface, int port, bool is_listening) -> int {
-    const SocketCfg socket_cfg{ip, iface, port, true, is_listening, 32, false};
+    const SocketCfg socket_cfg{ip, iface, port, true, is_listening, false};
     socket_fd_ = createSocket(logger_, socket_cfg);
     return socket_fd_;
   }

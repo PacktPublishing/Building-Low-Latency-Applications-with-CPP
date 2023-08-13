@@ -84,7 +84,7 @@ namespace Common {
       if (fd == -1)
         break;
 
-      ASSERT(setNonBlocking(fd) && setNoDelay(fd),
+      ASSERT(setNonBlocking(fd) && disableNagle(fd),
              "Failed to set non-blocking or no-delay on socket:" + std::to_string(fd));
 
       logger_.log("%:% %() % accepted socket:%\n", __FILE__, __LINE__, __FUNCTION__,
