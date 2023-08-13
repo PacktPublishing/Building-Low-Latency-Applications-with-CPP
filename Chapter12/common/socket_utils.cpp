@@ -66,25 +66,24 @@ namespace Common {
   }
 
   /// Create a TCP / UDP socket to either connect to or listen for data on or listen for connections on the specified interface and IP:port information.
-  auto createSocket(Logger &logger, const std::string &t_ip, const std::string &iface, int port,
-                    bool is_udp, bool is_blocking, bool is_listening, int ttl, bool needs_so_timestamp) -> int {
+  auto createSocket(Logger &logger, const SocketCfg& socket_cfg) -> int {
     std::string time_str;
 
-    const auto ip = t_ip.empty() ? getIfaceIP(iface) : t_ip;
-    logger.log("%:% %() % ip:% iface:% port:% is_udp:% is_blocking:% is_listening:% ttl:% SO_time:%\n", __FILE__, __LINE__, __FUNCTION__,
-               Common::getCurrentTimeStr(&time_str), ip, iface, port, is_udp, is_blocking, is_listening, ttl, needs_so_timestamp);
+    const auto ip = socket_cfg.ip_.empty() ? getIfaceIP(socket_cfg.iface_) : socket_cfg.ip_;
+    logger.log("%:% %() % cfg:%\n", __FILE__, __LINE__, __FUNCTION__,
+               Common::getCurrentTimeStr(&time_str), socket_cfg.toString());
 
     addrinfo hints{};
     hints.ai_family = AF_INET;
-    hints.ai_socktype = is_udp ? SOCK_DGRAM : SOCK_STREAM;
-    hints.ai_protocol = is_udp ? IPPROTO_UDP : IPPROTO_TCP;
-    hints.ai_flags = is_listening ? AI_PASSIVE : 0;
+    hints.ai_socktype = socket_cfg.is_udp_ ? SOCK_DGRAM : SOCK_STREAM;
+    hints.ai_protocol = socket_cfg.is_udp_ ? IPPROTO_UDP : IPPROTO_TCP;
+    hints.ai_flags = socket_cfg.is_listening_ ? AI_PASSIVE : 0;
     if (std::isdigit(ip.c_str()[0]))
       hints.ai_flags |= AI_NUMERICHOST;
     hints.ai_flags |= AI_NUMERICSERV;
 
     addrinfo *result = nullptr;
-    const auto rc = getaddrinfo(ip.c_str(), std::to_string(port).c_str(), &hints, &result);
+    const auto rc = getaddrinfo(ip.c_str(), std::to_string(socket_cfg.port_).c_str(), &hints, &result);
     if (rc) {
       logger.log("getaddrinfo() failed. error:% errno:%\n", gai_strerror(rc), strerror(errno));
       return -1;
@@ -98,58 +97,58 @@ namespace Common {
         logger.log("socket() failed. errno:%\n", strerror(errno));
         return -1;
       }
-      if (!is_blocking) {
+      if (!socket_cfg.is_blocking_) {
         if (!setNonBlocking(fd)) { // set the socket to be non-blocking.
           logger.log("setNonBlocking() failed. errno:%\n", strerror(errno));
           return -1;
         }
 
-        if (!is_udp && !setNoDelay(fd)) { // disable Nagle for TCP sockets.
+        if (!socket_cfg.is_udp_ && !setNoDelay(fd)) { // disable Nagle for TCP sockets.
           logger.log("setNoDelay() failed. errno:%\n", strerror(errno));
           return -1;
         }
       }
-      if (!is_listening && connect(fd, rp->ai_addr, rp->ai_addrlen) == 1 && !wouldBlock()) { // establish connection to specified address.
+      if (!socket_cfg.is_listening_ && connect(fd, rp->ai_addr, rp->ai_addrlen) == 1 && !wouldBlock()) { // establish connection to specified address.
         logger.log("connect() failed. errno:%\n", strerror(errno));
         return -1;
       }
-      if (is_listening && setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char *>(&one), sizeof(one)) == -1) { // allow re-using the address in the call to bind()
+      if (socket_cfg.is_listening_ && setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char *>(&one), sizeof(one)) == -1) { // allow re-using the address in the call to bind()
         logger.log("setsockopt() SO_REUSEADDR failed. errno:%\n", strerror(errno));
         return -1;
       }
-      if (is_listening) {
+      if (socket_cfg.is_listening_) {
         struct sockaddr_in addr;
         memset(&addr, 0, sizeof(addr));
         addr.sin_family = AF_INET;
         addr.sin_addr.s_addr = htonl(INADDR_ANY);
-        addr.sin_port = htons(port);
+        addr.sin_port = htons(socket_cfg.port_);
 
         // bind to the specified port number.
-        if (is_udp && bind(fd, (struct sockaddr *) &addr, sizeof(addr)) == -1) {
+        if (socket_cfg.is_udp_ && bind(fd, (struct sockaddr *) &addr, sizeof(addr)) == -1) {
           logger.log("bind() failed. errno:%\n", strerror(errno));
           return -1;
-        } else if (!is_udp && bind(fd, rp->ai_addr, rp->ai_addrlen) == -1) {
+        } else if (!socket_cfg.is_udp_ && bind(fd, rp->ai_addr, rp->ai_addrlen) == -1) {
           logger.log("bind() failed. errno:%\n", strerror(errno));
           return -1;
         }
       }
 
-      if (!is_udp && is_listening && listen(fd, MaxTCPServerBacklog) == -1) { // listen for incoming TCP connections.
+      if (!socket_cfg.is_udp_ && socket_cfg.is_listening_ && listen(fd, MaxTCPServerBacklog) == -1) { // listen for incoming TCP connections.
         logger.log("listen() failed. errno:%\n", strerror(errno));
         return -1;
       }
-      if (is_udp && ttl) { // set Time To Live (TTL) values on outgoing packets.
+      if (socket_cfg.is_udp_ && socket_cfg.ttl_) { // set Time To Live (TTL) values on outgoing packets.
         const bool is_multicast = atoi(ip.c_str()) & 0xe0;
-        if (is_multicast && !setMcastTTL(fd, ttl)) {
+        if (is_multicast && !setMcastTTL(fd, socket_cfg.ttl_)) {
           logger.log("setMcastTTL() failed. errno:%\n", strerror(errno));
           return -1;
         }
-        if (!is_multicast && !setTTL(fd, ttl)) {
+        if (!is_multicast && !setTTL(fd, socket_cfg.ttl_)) {
           logger.log("setTTL() failed. errno:%\n", strerror(errno));
           return -1;
         }
       }
-      if (needs_so_timestamp && !setSOTimestamp(fd)) { // enable software receive timestamps.
+      if (socket_cfg.needs_so_timestamp_ && !setSOTimestamp(fd)) { // enable software receive timestamps.
         logger.log("setSOTimestamp() failed. errno:%\n", strerror(errno));
         return -1;
       }

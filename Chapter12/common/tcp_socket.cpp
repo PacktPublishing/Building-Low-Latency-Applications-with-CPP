@@ -4,7 +4,8 @@ namespace Common {
   /// Create TCPSocket with provided attributes to either listen-on / connect-to.
   auto TCPSocket::connect(const std::string &ip, const std::string &iface, int port, bool is_listening) -> int {
     // Note that needs_so_timestamp=true for FIFOSequencer.
-    socket_fd_ = createSocket(logger_, ip, iface, port, false, false, is_listening, 0, true);
+    const SocketCfg socket_cfg{ip, iface, port, false, false, is_listening, 0, true};
+    socket_fd_ = createSocket(logger_, socket_cfg);
 
     socket_attrib_.sin_addr.s_addr = INADDR_ANY;
     socket_attrib_.sin_port = htons(port);

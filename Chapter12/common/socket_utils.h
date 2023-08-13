@@ -3,6 +3,7 @@
 #include <iostream>
 #include <string>
 #include <unordered_set>
+#include <sstream>
 #include <sys/epoll.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -20,6 +21,32 @@
 #include "logging.h"
 
 namespace Common {
+  struct SocketCfg {
+    std::string ip_;
+    std::string iface_;
+    int port_ = -1;
+    bool is_udp_ = false;
+    bool is_blocking_ = false;
+    bool is_listening_ = false;
+    int ttl_ = -1;
+    bool needs_so_timestamp_ =  false;
+
+    auto toString() const {
+      std::stringstream ss;
+      ss << "SocketCfg[ip:" << ip_
+      << " iface:" << iface_
+      << " port:" << port_
+      << " is_udp:" << is_udp_
+      << " is_blocking:" << is_blocking_
+      << " is_listening:" << is_listening_
+      << " ttl:" << ttl_
+      << " needs_SO_timestamp:" << needs_so_timestamp_
+      << "]";
+
+      return ss.str();
+    }
+  };
+
   /// Represents the maximum number of pending / unaccepted TCP connections.
   constexpr int MaxTCPServerBacklog = 1024;
 
@@ -48,5 +75,5 @@ namespace Common {
   auto join(int fd, const std::string &ip, const std::string &iface, int port) -> bool;
 
   /// Create a TCP / UDP socket to either connect to or listen for data on or listen for connections on the specified interface and IP:port information.
-  auto createSocket(Logger &logger, const std::string &t_ip, const std::string &iface, int port, bool is_udp, bool is_blocking, bool is_listening, int ttl, bool needs_so_timestamp) -> int;
+  auto createSocket(Logger &logger, const SocketCfg& socket_cfg) -> int;
 }
