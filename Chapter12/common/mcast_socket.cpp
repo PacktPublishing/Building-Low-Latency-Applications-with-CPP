@@ -10,8 +10,8 @@ namespace Common {
   }
 
   /// Add / Join membership / subscription to a multicast stream.
-  bool McastSocket::join(const std::string &ip, const std::string &iface, int port) {
-    return Common::join(socket_fd_, ip, iface, port);
+  bool McastSocket::join(const std::string &ip) {
+    return Common::join(socket_fd_, ip);
   }
 
   /// Remove / Leave membership / subscription to a multicast stream.

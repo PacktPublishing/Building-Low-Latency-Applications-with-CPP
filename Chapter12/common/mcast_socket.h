@@ -22,7 +22,7 @@ namespace Common {
     auto init(const std::string &ip, const std::string &iface, int port, bool is_listening) -> int;
 
     /// Add / Join membership / subscription to a multicast stream.
-    auto join(const std::string &ip, const std::string &iface, int port) -> bool;
+    auto join(const std::string &ip) -> bool;
 
     /// Remove / Leave membership / subscription to a multicast stream.
     auto leave(const std::string &ip, int port) -> void;

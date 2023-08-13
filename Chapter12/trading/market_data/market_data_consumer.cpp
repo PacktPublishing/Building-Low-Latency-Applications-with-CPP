@@ -17,7 +17,7 @@ namespace Trading {
     ASSERT(incremental_mcast_socket_.init(incremental_ip, iface, incremental_port, /*is_listening*/ true) >= 0,
            "Unable to create incremental mcast socket. error:" + std::string(std::strerror(errno)));
 
-    ASSERT(incremental_mcast_socket_.join(incremental_ip, iface, incremental_port),
+    ASSERT(incremental_mcast_socket_.join(incremental_ip),
            "Join failed on:" + std::to_string(incremental_mcast_socket_.socket_fd_) + " error:" + std::string(std::strerror(errno)));
 
     snapshot_mcast_socket_.recv_callback_ = recv_callback;
@@ -39,7 +39,7 @@ namespace Trading {
 
     ASSERT(snapshot_mcast_socket_.init(snapshot_ip_, iface_, snapshot_port_, /*is_listening*/ true) >= 0,
            "Unable to create snapshot mcast socket. error:" + std::string(std::strerror(errno)));
-    ASSERT(snapshot_mcast_socket_.join(snapshot_ip_, iface_, snapshot_port_), // IGMP multicast subscription.
+    ASSERT(snapshot_mcast_socket_.join(snapshot_ip_), // IGMP multicast subscription.
            "Join failed on:" + std::to_string(snapshot_mcast_socket_.socket_fd_) + " error:" + std::string(std::strerror(errno)));
   }
 
