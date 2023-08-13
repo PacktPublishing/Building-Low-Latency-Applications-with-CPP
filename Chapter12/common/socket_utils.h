@@ -26,7 +26,6 @@ namespace Common {
     std::string iface_;
     int port_ = -1;
     bool is_udp_ = false;
-    bool is_blocking_ = false;
     bool is_listening_ = false;
     int ttl_ = -1;
     bool needs_so_timestamp_ =  false;
@@ -37,7 +36,6 @@ namespace Common {
       << " iface:" << iface_
       << " port:" << port_
       << " is_udp:" << is_udp_
-      << " is_blocking:" << is_blocking_
       << " is_listening:" << is_listening_
       << " ttl:" << ttl_
       << " needs_SO_timestamp:" << needs_so_timestamp_

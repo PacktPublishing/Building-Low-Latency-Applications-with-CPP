@@ -73,14 +73,9 @@ namespace Common {
     logger.log("%:% %() % cfg:%\n", __FILE__, __LINE__, __FUNCTION__,
                Common::getCurrentTimeStr(&time_str), socket_cfg.toString());
 
-    addrinfo hints{};
-    hints.ai_family = AF_INET;
-    hints.ai_socktype = socket_cfg.is_udp_ ? SOCK_DGRAM : SOCK_STREAM;
-    hints.ai_protocol = socket_cfg.is_udp_ ? IPPROTO_UDP : IPPROTO_TCP;
-    hints.ai_flags = socket_cfg.is_listening_ ? AI_PASSIVE : 0;
-    if (std::isdigit(ip.c_str()[0]))
-      hints.ai_flags |= AI_NUMERICHOST;
-    hints.ai_flags |= AI_NUMERICSERV;
+    const int input_flags = (socket_cfg.is_listening_ ? AI_PASSIVE : 0) | (std::isdigit(ip.c_str()[0]) ? AI_NUMERICHOST : 0) | AI_NUMERICSERV;
+    const addrinfo hints{input_flags, AF_INET, socket_cfg.is_udp_ ? SOCK_DGRAM : SOCK_STREAM,
+                   socket_cfg.is_udp_ ? IPPROTO_UDP : IPPROTO_TCP, 0, 0, nullptr, nullptr};
 
     addrinfo *result = nullptr;
     const auto rc = getaddrinfo(ip.c_str(), std::to_string(socket_cfg.port_).c_str(), &hints, &result);
@@ -97,17 +92,16 @@ namespace Common {
         logger.log("socket() failed. errno:%\n", strerror(errno));
         return -1;
       }
-      if (!socket_cfg.is_blocking_) {
-        if (!setNonBlocking(fd)) { // set the socket to be non-blocking.
-          logger.log("setNonBlocking() failed. errno:%\n", strerror(errno));
-          return -1;
-        }
-
-        if (!socket_cfg.is_udp_ && !setNoDelay(fd)) { // disable Nagle for TCP sockets.
-          logger.log("setNoDelay() failed. errno:%\n", strerror(errno));
-          return -1;
-        }
+      if (!setNonBlocking(fd)) { // set the socket to be non-blocking.
+        logger.log("setNonBlocking() failed. errno:%\n", strerror(errno));
+        return -1;
       }
+
+      if (!socket_cfg.is_udp_ && !setNoDelay(fd)) { // disable Nagle for TCP sockets.
+        logger.log("setNoDelay() failed. errno:%\n", strerror(errno));
+        return -1;
+      }
+
       if (!socket_cfg.is_listening_ && connect(fd, rp->ai_addr, rp->ai_addrlen) == 1 && !wouldBlock()) { // establish connection to specified address.
         logger.log("connect() failed. errno:%\n", strerror(errno));
         return -1;
