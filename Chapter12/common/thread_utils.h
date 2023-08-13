@@ -27,6 +27,7 @@ namespace Common {
         std::cerr << "Failed to set core affinity for " << name << " " << pthread_self() << " to " << core_id << std::endl;
         exit(EXIT_FAILURE);
       }
+      std::cerr << "Set core affinity for " << name << " " << pthread_self() << " to " << core_id << std::endl;
 
       std::forward<T>(func)((std::forward<A>(args))...);
     });
