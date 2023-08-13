@@ -17,8 +17,8 @@ namespace Trading {
     ASSERT(incremental_mcast_socket_.init(incremental_ip, iface, incremental_port, /*is_listening*/ true) >= 0,
            "Unable to create incremental mcast socket. error:" + std::string(std::strerror(errno)));
 
-    ASSERT(incremental_mcast_socket_.join(incremental_ip, iface, incremental_port),
-           "Join failed on:" + std::to_string(incremental_mcast_socket_.fd_) + " error:" + std::string(std::strerror(errno)));
+    ASSERT(incremental_mcast_socket_.join(incremental_ip),
+           "Join failed on:" + std::to_string(incremental_mcast_socket_.socket_fd_) + " error:" + std::string(std::strerror(errno)));
 
     snapshot_mcast_socket_.recv_callback_ = recv_callback;
   }
@@ -39,8 +39,8 @@ namespace Trading {
 
     ASSERT(snapshot_mcast_socket_.init(snapshot_ip_, iface_, snapshot_port_, /*is_listening*/ true) >= 0,
            "Unable to create snapshot mcast socket. error:" + std::string(std::strerror(errno)));
-    ASSERT(snapshot_mcast_socket_.join(snapshot_ip_, iface_, snapshot_port_), // IGMP multicast subscription.
-           "Join failed on:" + std::to_string(snapshot_mcast_socket_.fd_) + " error:" + std::string(std::strerror(errno)));
+    ASSERT(snapshot_mcast_socket_.join(snapshot_ip_), // IGMP multicast subscription.
+           "Join failed on:" + std::to_string(snapshot_mcast_socket_.socket_fd_) + " error:" + std::string(std::strerror(errno)));
   }
 
   /// Check if a recovery / synchronization is possible from the queued up market data updates from the snapshot and incremental market data streams.
@@ -164,7 +164,7 @@ namespace Trading {
 
   /// Process a market data update, the consumer needs to use the socket parameter to figure out whether this came from the snapshot or the incremental stream.
   auto MarketDataConsumer::recvCallback(McastSocket *socket) noexcept -> void {
-    const auto is_snapshot = (socket->fd_ == snapshot_mcast_socket_.fd_);
+    const auto is_snapshot = (socket->socket_fd_ == snapshot_mcast_socket_.socket_fd_);
     if (UNLIKELY(is_snapshot && !in_recovery_)) { // market update was read from the snapshot market data stream and we are not in recovery, so we dont need it and discard it.
       socket->next_rcv_valid_index_ = 0;
 
@@ -177,7 +177,7 @@ namespace Trading {
     if (socket->next_rcv_valid_index_ >= sizeof(Exchange::MDPMarketUpdate)) {
       size_t i = 0;
       for (; i + sizeof(Exchange::MDPMarketUpdate) <= socket->next_rcv_valid_index_; i += sizeof(Exchange::MDPMarketUpdate)) {
-        auto request = reinterpret_cast<const Exchange::MDPMarketUpdate *>(socket->rcv_buffer_ + i);
+        auto request = reinterpret_cast<const Exchange::MDPMarketUpdate *>(socket->inbound_data_.data() + i);
         logger_.log("%:% %() % Received % socket len:% %\n", __FILE__, __LINE__, __FUNCTION__,
                     Common::getCurrentTimeStr(&time_str_),
                     (is_snapshot ? "snapshot" : "incremental"), sizeof(Exchange::MDPMarketUpdate), request->toString());
@@ -204,7 +204,7 @@ namespace Trading {
           incoming_md_updates_->updateWriteIndex();
         }
       }
-      memcpy(socket->rcv_buffer_, socket->rcv_buffer_ + i, socket->next_rcv_valid_index_ - i);
+      memcpy(socket->inbound_data_.data(), socket->inbound_data_.data() + i, socket->next_rcv_valid_index_ - i);
       socket->next_rcv_valid_index_ -= i;
     }
   }

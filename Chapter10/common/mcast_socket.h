@@ -13,27 +13,16 @@ namespace Common {
   struct McastSocket {
     McastSocket(Logger &logger)
         : logger_(logger) {
-      send_buffer_ = new char[McastBufferSize];
-      rcv_buffer_ = new char[McastBufferSize];
-      recv_callback_ = [this](auto socket) { defaultRecvCallback(socket); };
-    }
-
-    ~McastSocket() {
-      destroy();
-      delete[] send_buffer_;
-      send_buffer_ = nullptr;
-      delete[] rcv_buffer_;
-      rcv_buffer_ = nullptr;
+      outbound_data_.resize(McastBufferSize);
+      inbound_data_.resize(McastBufferSize);
     }
 
     /// Initialize multicast socket to read from or publish to a stream.
     /// Does not join the multicast stream yet.
     auto init(const std::string &ip, const std::string &iface, int port, bool is_listening) -> int;
 
-    auto destroy() -> void;
-
     /// Add / Join membership / subscription to a multicast stream.
-    auto join(const std::string &ip, const std::string &iface, int port) -> bool;
+    auto join(const std::string &ip) -> bool;
 
     /// Remove / Leave membership / subscription to a multicast stream.
     auto leave(const std::string &ip, int port) -> void;
@@ -44,22 +33,16 @@ namespace Common {
     /// Copy data to send buffers - does not send them out yet.
     auto send(const void *data, size_t len) noexcept -> void;
 
-    void defaultRecvCallback(McastSocket *socket) noexcept {
-      logger_.log("%:% %() % McastSocket::defaultRecvCallback() socket:% len:%\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_), socket->fd_, socket->next_rcv_valid_index_);
-    }
-
-    int fd_ = -1;
-    bool send_disconnected_ = false;
-    bool recv_disconnected_ = false;
+    int socket_fd_ = -1;
 
     /// Send and receive buffers, typically only one or the other is needed, not both.
-    char *send_buffer_ = nullptr;
+    std::vector<char> outbound_data_;
     size_t next_send_valid_index_ = 0;
-    char *rcv_buffer_ = nullptr;
+    std::vector<char> inbound_data_;
     size_t next_rcv_valid_index_ = 0;
 
     /// Function wrapper for the method to call when data is read.
-    std::function<void(McastSocket *s)> recv_callback_;
+    std::function<void(McastSocket *s)> recv_callback_ = nullptr;
 
     std::string time_str_;
     Logger &logger_;
