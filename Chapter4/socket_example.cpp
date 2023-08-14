@@ -8,29 +8,26 @@ int main(int, char **) {
   std::string time_str_;
   Logger logger_("socket_example.log");
 
-  auto tcpServerRecvCallback = [&](TCPSocket *socket, Nanos rx_time)
-  noexcept{
-      logger_.log("TCPServer::defaultRecvCallback() socket:% len:% rx:%\n",
-                  socket->fd_, socket->next_rcv_valid_index_, rx_time);
+  auto tcpServerRecvCallback = [&](TCPSocket *socket, Nanos rx_time) noexcept {
+    logger_.log("TCPServer::defaultRecvCallback() socket:% len:% rx:%\n",
+                socket->socket_fd_, socket->next_rcv_valid_index_, rx_time);
 
-      const std::string reply = "TCPServer received msg:" + std::string(socket->rcv_buffer_, socket->next_rcv_valid_index_);
-      socket->next_rcv_valid_index_ = 0;
+    const std::string reply = "TCPServer received msg:" + std::string(socket->inbound_data_.data(), socket->next_rcv_valid_index_);
+    socket->next_rcv_valid_index_ = 0;
 
-      socket->send(reply.data(), reply.length());
+    socket->send(reply.data(), reply.length());
   };
 
-  auto tcpServerRecvFinishedCallback = [&]()
-  noexcept{
-      logger_.log("TCPServer::defaultRecvFinishedCallback()\n");
+  auto tcpServerRecvFinishedCallback = [&]() noexcept {
+    logger_.log("TCPServer::defaultRecvFinishedCallback()\n");
   };
 
-  auto tcpClientRecvCallback = [&](TCPSocket *socket, Nanos rx_time)
-  noexcept{
-      const std::string recv_msg = std::string(socket->rcv_buffer_, socket->next_rcv_valid_index_);
-      socket->next_rcv_valid_index_ = 0;
+  auto tcpClientRecvCallback = [&](TCPSocket *socket, Nanos rx_time) noexcept {
+    const std::string recv_msg = std::string(socket->inbound_data_.data(), socket->next_rcv_valid_index_);
+    socket->next_rcv_valid_index_ = 0;
 
-      logger_.log("TCPSocket::defaultRecvCallback() socket:% len:% rx:% msg:%\n",
-      socket->fd_, socket->next_rcv_valid_index_, rx_time, recv_msg);
+    logger_.log("TCPSocket::defaultRecvCallback() socket:% len:% rx:% msg:%\n",
+                socket->socket_fd_, socket->next_rcv_valid_index_, rx_time, recv_msg);
   };
 
   const std::string iface = "lo";
@@ -43,7 +40,7 @@ int main(int, char **) {
   server.recv_finished_callback_ = tcpServerRecvFinishedCallback;
   server.listen(iface, port);
 
-  std::vector < TCPSocket * > clients(5);
+  std::vector<TCPSocket *> clients(5);
 
   for (size_t i = 0; i < clients.size(); ++i) {
     clients[i] = new TCPSocket(logger_);
@@ -67,14 +64,6 @@ int main(int, char **) {
       server.poll();
       server.sendAndRecv();
     }
-  }
-
-  for (auto itr = 0; itr < 5; ++itr) {
-    for (auto &client: clients)
-      client->sendAndRecv();
-    server.poll();
-    server.sendAndRecv();
-    std::this_thread::sleep_for(500ms);
   }
 
   return 0;

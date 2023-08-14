@@ -10,9 +10,9 @@ int main(int, char **) {
 
   auto tcpServerRecvCallback = [&](TCPSocket *socket, Nanos rx_time) noexcept {
     logger_.log("TCPServer::defaultRecvCallback() socket:% len:% rx:%\n",
-                socket->fd_, socket->next_rcv_valid_index_, rx_time);
+                socket->socket_fd_, socket->next_rcv_valid_index_, rx_time);
 
-    const std::string reply = "TCPServer received msg:" + std::string(socket->rcv_buffer_, socket->next_rcv_valid_index_);
+    const std::string reply = "TCPServer received msg:" + std::string(socket->inbound_data_.data(), socket->next_rcv_valid_index_);
     socket->next_rcv_valid_index_ = 0;
 
     socket->send(reply.data(), reply.length());
@@ -23,11 +23,11 @@ int main(int, char **) {
   };
 
   auto tcpClientRecvCallback = [&](TCPSocket *socket, Nanos rx_time) noexcept {
-    const std::string recv_msg = std::string(socket->rcv_buffer_, socket->next_rcv_valid_index_);
+    const std::string recv_msg = std::string(socket->inbound_data_.data(), socket->next_rcv_valid_index_);
     socket->next_rcv_valid_index_ = 0;
 
     logger_.log("TCPSocket::defaultRecvCallback() socket:% len:% rx:% msg:%\n",
-                socket->fd_, socket->next_rcv_valid_index_, rx_time, recv_msg);
+                socket->socket_fd_, socket->next_rcv_valid_index_, rx_time, recv_msg);
   };
 
   const std::string iface = "lo";

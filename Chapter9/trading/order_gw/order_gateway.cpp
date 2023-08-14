@@ -10,6 +10,7 @@ namespace Trading {
     tcp_socket_.recv_callback_ = [this](auto socket, auto rx_time) { recvCallback(socket, rx_time); };
   }
 
+  /// Main thread loop - sends out client requests to the exchange and reads and dispatches incoming client responses.
   auto OrderGateway::run() noexcept -> void {
     logger_.log("%:% %() %\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_));
     while (run_) {
@@ -27,21 +28,22 @@ namespace Trading {
     }
   }
 
+  /// Callback when an incoming client response is read, we perform some checks and forward it to the lock free queue connected to the trade engine.
   auto OrderGateway::recvCallback(TCPSocket *socket, Nanos rx_time) noexcept -> void {
-    logger_.log("%:% %() % Received socket:% len:% %\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_), socket->fd_, socket->next_rcv_valid_index_, rx_time);
+    logger_.log("%:% %() % Received socket:% len:% %\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_), socket->socket_fd_, socket->next_rcv_valid_index_, rx_time);
 
     if (socket->next_rcv_valid_index_ >= sizeof(Exchange::OMClientResponse)) {
       size_t i = 0;
       for (; i + sizeof(Exchange::OMClientResponse) <= socket->next_rcv_valid_index_; i += sizeof(Exchange::OMClientResponse)) {
-        auto response = reinterpret_cast<const Exchange::OMClientResponse *>(socket->rcv_buffer_ + i);
+        auto response = reinterpret_cast<const Exchange::OMClientResponse *>(socket->inbound_data_.data() + i);
         logger_.log("%:% %() % Received %\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_), response->toString());
 
-        if(response->me_client_response_.client_id_ != client_id_) {
+        if(response->me_client_response_.client_id_ != client_id_) { // this should never happen unless there is a bug at the exchange.
           logger_.log("%:% %() % ERROR Incorrect client id. ClientId expected:% received:%.\n", __FILE__, __LINE__, __FUNCTION__,
                       Common::getCurrentTimeStr(&time_str_), client_id_, response->me_client_response_.client_id_);
           continue;
         }
-        if(response->seq_num_ != next_exp_seq_num_) {
+        if(response->seq_num_ != next_exp_seq_num_) { // this should never happen since we use a reliable TCP protocol, unless there is a bug at the exchange.
           logger_.log("%:% %() % ERROR Incorrect sequence number. ClientId:%. SeqNum expected:% received:%.\n", __FILE__, __LINE__, __FUNCTION__,
                       Common::getCurrentTimeStr(&time_str_), client_id_, next_exp_seq_num_, response->seq_num_);
           continue;
@@ -53,7 +55,7 @@ namespace Trading {
         *next_write = std::move(response->me_client_response_);
         incoming_responses_->updateWriteIndex();
       }
-      memcpy(socket->rcv_buffer_, socket->rcv_buffer_ + i, socket->next_rcv_valid_index_ - i);
+      memcpy(socket->inbound_data_.data(), socket->inbound_data_.data() + i, socket->next_rcv_valid_index_ - i);
       socket->next_rcv_valid_index_ -= i;
     }
   }
