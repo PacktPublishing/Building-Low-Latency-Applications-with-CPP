@@ -1,3 +1,6 @@
+
+<b><p align='center'>[![Packt Sale](https://static.packt-cdn.com/assets/images/e72907cf-bf2f-4f83-bb58-6cc08a901ff9.jpeg)](https://www.packtpub.com/)</p></b>Get this book on sale at [Packt](https://www.packtpub.com/).
+
 # Building Low Latency Applications with C++
 
 <a href="https://www.packtpub.com/product/building-low-latency-applications-with-c/9781837639359"><img src="https://content.packt.com/B19434/cover_image_small.jpg" alt="Building Low Latency Applications with C++" height="256px" align="right"></a>
