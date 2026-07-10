@@ -29,7 +29,7 @@ namespace Common {
 
     auto updateReadIndex() noexcept {
       next_read_index_ = (next_read_index_ + 1) % store_.size(); // wrap around at the end of container size.
-      ASSERT(num_elements_ != 0, "Read an invalid element in:" + std::to_string(pthread_self()));
+      ASSERT(num_elements_ != 0, "Read an invalid element in:" + std::to_string((uintptr_t) pthread_self()));
       num_elements_--;
     }
 

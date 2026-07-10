@@ -1,11 +1,22 @@
 #pragma once
 
+#include <cstdint>
+
 namespace Common {
   /// Read from the TSC register and return a uint64_t value to represent elapsed CPU clock cycles.
-  inline auto rdtsc() noexcept {
+  inline auto rdtsc() noexcept -> uint64_t {
+#if defined(__x86_64__) || defined(__i386__)
     unsigned int lo, hi;
     __asm__ __volatile__ ("rdtsc" : "=a" (lo), "=d" (hi));
     return ((uint64_t) hi << 32) | lo;
+#elif defined(__aarch64__)
+    /// aarch64 (e.g. Apple Silicon) has no rdtsc; use the virtual count register.
+    uint64_t val;
+    __asm__ __volatile__ ("mrs %0, cntvct_el0" : "=r" (val));
+    return val;
+#else
+    return 0;
+#endif
   }
 }
 

@@ -10,12 +10,19 @@
 namespace Common {
   /// Set affinity for current thread to be pinned to the provided core_id.
   inline auto setThreadCore(int core_id) noexcept {
+#if defined(__linux__)
     cpu_set_t cpuset;
 
     CPU_ZERO(&cpuset);
     CPU_SET(core_id, &cpuset);
 
     return (pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset) == 0);
+#else
+    /// Thread affinity pinning is a Linux-only API (cpu_set_t / pthread_setaffinity_np);
+    /// on other platforms (e.g. macOS) it is a no-op so the code stays portable for testing.
+    (void) core_id;
+    return true;
+#endif
   }
 
   /// Creates a thread instance, sets affinity on it, assigns it a name and
