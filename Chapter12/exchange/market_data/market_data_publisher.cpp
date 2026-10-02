@@ -16,7 +16,7 @@ namespace Exchange {
     logger_.log("%:% %() %\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_));
     while (run_) {
       for (auto market_update = outgoing_md_updates_->getNextToRead();
-           outgoing_md_updates_->size() && market_update; market_update = outgoing_md_updates_->getNextToRead()) {
+           market_update; market_update = outgoing_md_updates_->getNextToRead()) {
         TTT_MEASURE(T5_MarketDataPublisher_LFQueue_read, logger_);
 
         logger_.log("%:% %() % Sending seq:% %\n", __FILE__, __LINE__, __FUNCTION__, Common::getCurrentTimeStr(&time_str_), next_inc_seq_num_,

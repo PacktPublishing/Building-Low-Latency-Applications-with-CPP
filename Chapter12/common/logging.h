@@ -48,7 +48,7 @@ namespace Common {
     auto flushQueue() noexcept {
       while (running_) {
 
-        for (auto next = queue_.getNextToRead(); queue_.size() && next; next = queue_.getNextToRead()) {
+        for (auto next = queue_.getNextToRead(); next; next = queue_.getNextToRead()) {
           switch (next->type_) {
             case LogType::CHAR:
               file_ << next->u_.c;
