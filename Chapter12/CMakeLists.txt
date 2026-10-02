@@ -35,3 +35,6 @@ target_link_libraries(release_benchmark PUBLIC ${LIBS})
 
 add_executable(hash_benchmark benchmarks/hash_benchmark.cpp)
 target_link_libraries(hash_benchmark PUBLIC ${LIBS})
+
+add_executable(lf_queue_benchmark benchmarks/lf_queue_benchmark.cpp)
+target_link_libraries(lf_queue_benchmark PUBLIC ${LIBS})

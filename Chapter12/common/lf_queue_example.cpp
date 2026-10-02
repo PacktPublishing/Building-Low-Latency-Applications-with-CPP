@@ -24,7 +24,7 @@ auto consumeFunction(LFQueue<MyStruct>* lfq) {
 }
 
 int main(int, char **) {
-  LFQueue<MyStruct> lfq(20);
+  LFQueue<MyStruct> lfq(32);
 
   auto ct = createAndStartThread(-1, "", consumeFunction, &lfq);
 
